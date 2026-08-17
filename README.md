@@ -21,6 +21,8 @@ and does not contain Splitwise source code, branding, or private assets.
 - Local persistence so the prototype is useful before the API is connected
 - Installable PWA shell and Capacitor Android/iOS packaging foundation
 - Protected login with email/password, Google, Apple, and GitHub auth adapters
+- Real web OAuth redirects plus Android/iOS deep-link session handoff (provider credentials required)
+- Persisted currency and language choices that update the ledger, dates, and core navigation
 
 ## Run locally
 

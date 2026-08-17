@@ -22,6 +22,7 @@ import { GroupsPage } from './pages/GroupsPage'
 import { SettingsPage, type SettingsSection } from './pages/SettingsPage'
 import { PayLendPage } from './pages/PayLendPage'
 import { useAuth } from './auth/AuthProvider'
+import { localeForLanguage, resolveLanguage } from './lib/i18n'
 
 const LAST_SYNCED_AUTH_KEY = 'fairshare-last-synced-auth-id'
 
@@ -60,6 +61,14 @@ export default function App() {
 
   const currentUser = findUser(state.users, state.currentUserId)
   const group = state.groups.find((entry) => entry.id === selectedGroupId) ?? state.groups[0]
+  const language = resolveLanguage(currentUser.language)
+  const currency = currentUser.defaultCurrency ?? 'INR'
+
+  useEffect(() => {
+    document.documentElement.lang = language
+    document.documentElement.dir = 'ltr'
+    document.documentElement.dataset.locale = localeForLanguage(language)
+  }, [language])
 
   useEffect(() => {
     if (authUser && syncedAuthId.current !== authUser.id) {
@@ -165,10 +174,10 @@ export default function App() {
       {currentView === 'pay' && <PayLendPage topbar={topbar} />}
       {currentView === 'settings' && <SettingsPage user={currentUser} activeSection={settingsSection} preferences={preferences} notifications={notifications} security={security} authProvider={authUser?.provider ?? 'email'} onSectionChange={setSettingsSection} onSaveProfile={updateCurrentUser} onUpdatePreferences={updatePreferences} onUpdateNotifications={updateNotifications} onUpdateSecurity={updateSecurity} onResetPassword={async () => (await sendPasswordReset(currentUser.email)).message ?? 'Password reset instructions sent.'} onSignOut={() => void signOut()} topbar={topbar} />}
 
-      <MobileNavigation currentView={currentView} onNavigate={navigate} />
+      <MobileNavigation currentView={currentView} language={language} onNavigate={navigate} />
 
-      <ExpenseModal open={expenseOpen} expense={editingExpense} group={group} users={state.users} currentUserId={state.currentUserId} onClose={() => { setExpenseOpen(false); setEditingExpense(null) }} onSave={saveExpense} />
-      <SettleModal open={settleOpen} payment={editingPayment} suggestedDebt={suggestedDebt} group={group} users={state.users} currentUserId={state.currentUserId} onClose={() => { setSettleOpen(false); setEditingPayment(null); setSuggestedDebt(null) }} onSave={savePayment} />
+      <ExpenseModal open={expenseOpen} expense={editingExpense} group={group} users={state.users} currentUserId={state.currentUserId} currency={currency} onClose={() => { setExpenseOpen(false); setEditingExpense(null) }} onSave={saveExpense} />
+      <SettleModal open={settleOpen} payment={editingPayment} suggestedDebt={suggestedDebt} group={group} users={state.users} currentUserId={state.currentUserId} currency={currency} onClose={() => { setSettleOpen(false); setEditingPayment(null); setSuggestedDebt(null) }} onSave={savePayment} />
       <CreateGroupModal open={createGroupOpen} users={state.users} currentUserId={state.currentUserId} onClose={() => setCreateGroupOpen(false)} onSave={saveGroup} />
       <ExpenseDetailModal expense={selectedExpense} group={selectedExpense ? state.groups.find((entry) => entry.id === selectedExpense.groupId) : undefined} users={state.users} onClose={() => setSelectedExpense(null)} onEdit={editExpense} onDelete={deleteExpense} requireDeleteConfirmation={security.confirmSensitiveActions} />
       <PaymentDetailModal payment={selectedPayment} group={selectedPayment ? state.groups.find((entry) => entry.id === selectedPayment.groupId) : undefined} users={state.users} onClose={() => setSelectedPayment(null)} onEdit={editPayment} onDelete={deletePayment} requireDeleteConfirmation={security.confirmSensitiveActions} />

@@ -9,6 +9,8 @@ import type {
   SecurityPreferences, ThemePreference, User,
 } from '../domain/types'
 import { Avatar } from '../components/Avatar'
+import { formatMoney } from '../domain/money'
+import { translate, type TranslationKey } from '../lib/i18n'
 
 export type SettingsSection = 'profile' | 'notifications' | 'appearance' | 'security'
 
@@ -29,28 +31,30 @@ interface SettingsPageProps {
   topbar: ReactNode
 }
 
-const sections: Array<{ id: SettingsSection; label: string; icon: typeof UserRound }> = [
-  { id: 'profile', label: 'Profile', icon: UserRound },
-  { id: 'notifications', label: 'Notifications', icon: Bell },
-  { id: 'appearance', label: 'Appearance', icon: Palette },
-  { id: 'security', label: 'Security', icon: ShieldCheck },
+const sections: Array<{ id: SettingsSection; labelKey: TranslationKey; icon: typeof UserRound }> = [
+  { id: 'profile', labelKey: 'profile', icon: UserRound },
+  { id: 'notifications', labelKey: 'notifications', icon: Bell },
+  { id: 'appearance', labelKey: 'appearance', icon: Palette },
+  { id: 'security', labelKey: 'security', icon: ShieldCheck },
 ]
 
 export function SettingsPage(props: SettingsPageProps) {
   const active = sections.find((section) => section.id === props.activeSection) ?? sections[0]!
   const ActiveIcon = active.icon
+  const t = (key: TranslationKey, variables?: Record<string, string | number>) => translate(props.user.language, key, variables)
+  const activeLabel = t(active.labelKey)
 
   return (
     <main className="main-panel page-panel" id="top">
       {props.topbar}
       <div className="content page-content settings-content">
         <section className="page-hero settings-hero">
-          <div><span className="page-hero__icon"><ActiveIcon size={23} /></span><div><span className="eyebrow">Personal account</span><h1>{active.label}</h1><p>Manage your {active.label.toLowerCase()} preferences.</p></div></div>
+          <div><span className="page-hero__icon"><ActiveIcon size={23} /></span><div><span className="eyebrow">{t('personalAccount')}</span><h1>{activeLabel}</h1><p>{t('managePreferences', { section: activeLabel.toLowerCase() })}</p></div></div>
         </section>
 
         <div className="settings-layout">
           <nav className="settings-nav" aria-label="Settings sections" role="tablist">
-            {sections.map(({ id, label, icon: Icon }) => <button type="button" role="tab" aria-selected={props.activeSection === id} className={props.activeSection === id ? 'is-active' : ''} onClick={() => props.onSectionChange(id)} key={id}><Icon size={17} /><span>{label}</span><ChevronRight size={14} /></button>)}
+            {sections.map(({ id, labelKey, icon: Icon }) => <button type="button" role="tab" aria-selected={props.activeSection === id} className={props.activeSection === id ? 'is-active' : ''} onClick={() => props.onSectionChange(id)} key={id}><Icon size={17} /><span>{t(labelKey)}</span><ChevronRight size={14} /></button>)}
           </nav>
           <div className="settings-sections">
             {props.activeSection === 'profile' && <ProfilePanel user={props.user} onSave={props.onSaveProfile} />}
@@ -75,6 +79,7 @@ function ProfilePanel({ user, onSave }: { user: User; onSave: SettingsPageProps[
   const [feedback, setFeedback] = useState('')
   const [error, setError] = useState('')
   const fileInput = useRef<HTMLInputElement>(null)
+  const t = (key: TranslationKey) => translate(user.language, key)
 
   useEffect(() => {
     setName(user.name); setEmail(user.email); setPhone(user.phone ?? '')
@@ -105,9 +110,9 @@ function ProfilePanel({ user, onSave }: { user: User; onSave: SettingsPageProps[
   return <form className="settings-panel" role="tabpanel" aria-label="Profile settings" onSubmit={save}>
     <section className="settings-card profile-photo-card"><header><div><h2>Profile picture</h2><p>Shown to friends in groups and settlements.</p></div><ImagePlus size={20} /></header><div className="profile-photo-editor"><Avatar user={{ ...user, name, email, avatarUrl: avatarUrl || undefined }} size="large" /><div><strong>{name || user.name}</strong><span>PNG, JPEG, or WebP · maximum 1.5 MB</span><div><button className="button button--secondary" type="button" onClick={() => fileInput.current?.click()}><Camera size={16} /> Choose photo</button>{avatarUrl && <button className="button button--ghost danger-text" type="button" onClick={() => setAvatarUrl('')}><Trash2 size={15} /> Remove</button>}</div></div><input ref={fileInput} className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" aria-label="Upload profile picture" onChange={choosePhoto} /></div></section>
     <section className="settings-card"><header><div><h2>Personal details</h2><p>Used for receipts, reminders, and shared groups.</p></div><UserRound size={20} /></header><div className="form-grid"><label className="field"><span>Full name</span><input autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} /></label><label className="field"><span>Email address</span><input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label><label className="field"><span>Phone number</span><input inputMode="tel" autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="Used for WhatsApp reminders" /></label><label className="field"><span>Instagram username</span><input value={instagramHandle} onChange={(event) => setInstagramHandle(event.target.value)} placeholder="@username" /></label></div></section>
-    <section className="settings-card"><header><div><h2>Regional preferences</h2><p>Applied to future expenses and app labels.</p></div><Globe2 size={20} /></header><div className="form-grid"><label className="field"><span>Default currency</span><select value={currency} onChange={(event) => setCurrency(event.target.value)}><option value="INR">INR — Indian Rupee</option><option value="USD">USD — US Dollar</option><option value="EUR">EUR — Euro</option><option value="GBP">GBP — British Pound</option></select></label><label className="field"><span>Language</span><select value={language} onChange={(event) => setLanguage(event.target.value)}><option value="en">English</option><option value="hi">हिन्दी</option><option value="es">Español</option></select></label></div></section>
+    <section className="settings-card regional-card"><header><div><h2>Regional preferences</h2><p>Save to apply these choices across the web and mobile app.</p></div><Globe2 size={20} /></header><div className="form-grid regional-fields"><label className="field"><span>{t('defaultCurrency')}</span><select value={currency} onChange={(event) => setCurrency(event.target.value)}><option value="INR">INR — Indian Rupee</option><option value="USD">USD — US Dollar</option><option value="EUR">EUR — Euro</option><option value="GBP">GBP — British Pound</option></select></label><label className="field"><span>{t('language')}</span><select value={language} onChange={(event) => setLanguage(event.target.value)}><option value="en">English</option><option value="hi">हिन्दी</option><option value="es">Español</option></select></label></div><div className="regional-preview" aria-live="polite"><Globe2 size={17} /><div><strong>{formatMoney(123456, currency)}</strong><span>Currency updates the local ledger label; amounts are not converted using live FX rates. Language updates the app shell after saving.</span></div></div></section>
     {error && <p className="auth-alert auth-alert--error" role="alert">{error}</p>}{feedback && <p className="auth-alert auth-alert--success" role="status"><Check size={14} /> {feedback}</p>}
-    <button className="button button--primary settings-save" type="submit"><Save size={17} /> Save profile</button>
+    <button className="button button--primary settings-save" type="submit"><Save size={17} /> {t('saveProfile')}</button>
   </form>
 }
 
@@ -137,7 +142,18 @@ function NotificationsPanel({ preferences, onUpdate }: { preferences: Notificati
 
 function AppearancePanel({ preferences, onUpdate }: { preferences: AppPreferences; onUpdate: (patch: Partial<AppPreferences>) => void }) {
   return <section className="settings-panel" role="tabpanel" aria-label="Appearance settings">
-    <section className="settings-card appearance-card"><header><div><h2>Make Fairshare yours</h2><p>Changes preview immediately and are saved on this device.</p></div><WandSparkles size={20} /></header><div className="appearance-block"><span>Theme</span><div className="theme-choice-grid">{([['light', Sun, 'Light'], ['dark', Moon, 'True black'], ['system', Monitor, 'System']] as const).map(([value, Icon, label]) => <button type="button" className={preferences.theme === value ? 'is-active' : ''} onClick={() => onUpdate({ theme: value as ThemePreference })} key={value}><Icon size={18} /><strong>{label}</strong><small>{value === 'system' ? 'Match device' : value === 'dark' ? 'OLED friendly' : 'Light canvas'}</small></button>)}</div></div><div className="appearance-split"><div className="appearance-block"><span>Theme colour</span><div className="accent-choices">{(['coral', 'emerald', 'violet'] as AccentPreference[]).map((accent) => <button type="button" aria-label={`${accent} accent`} className={`${accent} ${preferences.accent === accent ? 'is-active' : ''}`} onClick={() => onUpdate({ accent })} key={accent}><Check size={12} /></button>)}</div></div><div className="appearance-block"><span>Layout density</span><div className="density-choices">{(['comfortable', 'compact'] as DensityPreference[]).map((density) => <button type="button" className={preferences.density === density ? 'is-active' : ''} onClick={() => onUpdate({ density })} key={density}><LayoutGrid size={14} /> {density}</button>)}</div></div></div><ToggleRow icon={<EyeOff size={17} />} title="Privacy mode" copy="Blur financial amounts until you hover or tap" checked={preferences.hideBalances} onChange={(hideBalances) => onUpdate({ hideBalances })} /><ToggleRow icon={<WandSparkles size={17} />} title="Reduce motion" copy="Disable decorative animations and transitions" checked={preferences.reduceMotion} onChange={(reduceMotion) => onUpdate({ reduceMotion })} /></section>
+    <section className="settings-card appearance-card">
+      <header><div><h2>Make Fairshare yours</h2><p>Changes preview immediately and are saved on this device.</p></div><WandSparkles size={20} /></header>
+      <div className="appearance-block appearance-block--theme"><span>Theme</span><div className="theme-choice-grid">{([['light', Sun, 'Light'], ['dark', Moon, 'True black'], ['system', Monitor, 'System']] as const).map(([value, Icon, label]) => <button type="button" className={preferences.theme === value ? 'is-active' : ''} onClick={() => onUpdate({ theme: value as ThemePreference })} key={value}><Icon size={18} /><strong>{label}</strong><small>{value === 'system' ? 'Match device' : value === 'dark' ? 'OLED friendly' : 'Light canvas'}</small></button>)}</div></div>
+      <div className="appearance-split">
+        <div className="appearance-block"><span>Theme colour</span><div className="accent-choices">{(['coral', 'emerald', 'violet'] as AccentPreference[]).map((accent) => <button type="button" aria-label={`${accent} accent`} className={`${accent} ${preferences.accent === accent ? 'is-active' : ''}`} onClick={() => onUpdate({ accent })} key={accent}><Check size={12} /></button>)}</div></div>
+        <div className="appearance-block"><span>Layout density</span><div className="density-choices">{(['comfortable', 'compact'] as DensityPreference[]).map((density) => <button type="button" className={preferences.density === density ? 'is-active' : ''} onClick={() => onUpdate({ density })} key={density}><LayoutGrid size={14} /> {density}</button>)}</div></div>
+      </div>
+      <div className="appearance-toggles">
+        <ToggleRow icon={<EyeOff size={17} />} title="Privacy mode" copy="Blur financial amounts until you hover or tap" checked={preferences.hideBalances} onChange={(hideBalances) => onUpdate({ hideBalances })} />
+        <ToggleRow icon={<WandSparkles size={17} />} title="Reduce motion" copy="Disable decorative animations and transitions" checked={preferences.reduceMotion} onChange={(reduceMotion) => onUpdate({ reduceMotion })} />
+      </div>
+    </section>
   </section>
 }
 

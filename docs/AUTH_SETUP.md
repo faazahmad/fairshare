@@ -3,9 +3,9 @@
 Fairshare supports two authentication modes:
 
 - **Demo mode** activates automatically when no Supabase environment variables
-  exist. Email login, sign-up, reset feedback, Google, Apple, and GitHub buttons
-  work locally without contacting a provider. Demo sessions never leave the
-  device and are clearly labelled in the UI.
+  exist. Email login and sign-up work locally with the displayed demo account.
+  Google, Apple, and GitHub deliberately do not simulate a successful identity;
+  they show a configuration error until a real provider is connected.
 - **Production mode** activates when `VITE_SUPABASE_URL` and
   `VITE_SUPABASE_PUBLISHABLE_KEY` are provided. It uses Supabase Auth for
   password sessions, OAuth redirects, token refresh, and sign-out.
@@ -19,6 +19,7 @@ project's Connect dialog:
 VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_REPLACE_ME
 VITE_AUTH_REDIRECT_URL=http://127.0.0.1:4173/
+VITE_NATIVE_AUTH_REDIRECT_URL=com.fairshare.app://auth/callback
 ```
 
 The publishable key is designed for browser use. Never put a service-role key,
@@ -74,11 +75,22 @@ Reference: https://supabase.com/docs/guides/auth/social-login
 
 ## 6. Native Android and iOS handoff
 
-The current OAuth redirect works immediately for the web/PWA. Before native
-store builds, configure an HTTPS universal/app link or a custom deep-link scheme,
-add it to Supabase's redirect allow list, and set `VITE_AUTH_REDIRECT_URL` to that
-callback for the native build. The Capacitor App plugin must forward the callback
-URL to the Supabase client.
+The installed app uses Capacitor Browser to open the provider and Capacitor App
+to receive `com.fairshare.app://auth/callback`. The callback handler validates the
+returned token pair, gives it to Supabase, closes the authorization browser, and
+lets the shared auth-state listener enter the app.
+
+Add `com.fairshare.app://**` to **Authentication → URL Configuration → Redirect
+URLs** in Supabase. After generating the native projects, register the same
+scheme on both platforms:
+
+- Android: add an `android.intent.action.VIEW` intent filter for the
+  `com.fairshare.app` scheme inside the main activity.
+- iOS: add `com.fairshare.app` to `CFBundleURLSchemes` in `Info.plist`.
+
+Run `pnpm mobile:sync` after installing or changing Capacitor plugins. A final
+production release should move to a verified HTTPS app/universal link when the
+public Fairshare domain is approved.
 
 For the best iPhone experience, the final native build should use Apple's native
 Authentication Services capability and pass its ID token to Supabase. The web

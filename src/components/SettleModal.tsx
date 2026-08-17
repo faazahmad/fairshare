@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowRight, CalendarDays, HandCoins, X } from 'lucide-react'
 import type { Debt, Group, Payment, User } from '../domain/types'
-import { parseMoney } from '../domain/money'
+import { currencySymbol, parseMoney } from '../domain/money'
 import { localDateValue } from '../lib/dates'
 import { Avatar } from './Avatar'
 
@@ -12,11 +12,12 @@ interface SettleModalProps {
   group: Group
   users: User[]
   currentUserId: string
+  currency: string
   onClose: () => void
   onSave: (payment: Payment) => void
 }
 
-export function SettleModal({ open, payment, suggestedDebt, group, users, currentUserId, onClose, onSave }: SettleModalProps) {
+export function SettleModal({ open, payment, suggestedDebt, group, users, currentUserId, currency, onClose, onSave }: SettleModalProps) {
   const members = useMemo(
     () => group.memberIds.map((id) => users.find((user) => user.id === id)).filter(Boolean) as User[],
     [group.memberIds, users],
@@ -52,7 +53,7 @@ export function SettleModal({ open, payment, suggestedDebt, group, users, curren
     onSave({
       id: payment?.id ?? crypto.randomUUID(),
       groupId: payment?.groupId ?? group.id,
-      currency: payment?.currency ?? 'INR',
+      currency: payment?.currency ?? currency,
       amount: parsed,
       fromUserId,
       toUserId,
@@ -93,7 +94,7 @@ export function SettleModal({ open, payment, suggestedDebt, group, users, curren
           </div>
           <label className="settlement-amount">
             <HandCoins size={26} />
-            <span>₹</span>
+            <span>{currencySymbol(payment?.currency ?? currency)}</span>
             <input inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0.00" autoFocus />
           </label>
           <div className="form-grid">

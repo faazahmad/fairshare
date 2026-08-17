@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 import { getAuthRedirectUrl, isSupabaseConfigured, supabase } from './supabase'
 import type { AuthActionResult, AuthProfile, SocialProvider } from './types'
+import { isNativeAuth, listenForNativeOAuth, startNativeOAuth } from './nativeOAuth'
 
 const DEMO_SESSION_KEY = 'fairshare-auth-demo-v1'
 const DEMO_EMAIL = 'demo@fairshare.app'
@@ -37,7 +38,13 @@ function mapSupabaseUser(user: SupabaseUser): AuthProfile {
 function loadDemoSession(): AuthProfile | null {
   try {
     const stored = localStorage.getItem(DEMO_SESSION_KEY)
-    return stored ? JSON.parse(stored) as AuthProfile : null
+    if (!stored) return null
+    const profile = JSON.parse(stored) as AuthProfile
+    if (profile.provider !== 'email') {
+      localStorage.removeItem(DEMO_SESSION_KEY)
+      return null
+    }
+    return profile
   } catch {
     return null
   }
@@ -82,6 +89,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mounted = false
       subscription.unsubscribe()
     }
+  }, [])
+
+  useEffect(() => {
+    if (!supabase || !isNativeAuth()) return
+    let removeListener: (() => Promise<void>) | undefined
+    void listenForNativeOAuth().then((remove) => { removeListener = remove })
+    return () => { void removeListener?.() }
   }, [])
 
   const value = useMemo<AuthContextValue>(() => ({
@@ -148,25 +162,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async signInWithSocial(provider) {
       try {
-        if (supabase) {
-          const { error } = await supabase.auth.signInWithOAuth({
-            provider,
-            options: { redirectTo: getAuthRedirectUrl() },
-          })
-          if (error) throw error
+        if (!supabase) {
+          throw new Error('Social sign-in needs a configured Supabase project and enabled provider. Add the public project keys, then enable this provider in Supabase Auth.')
+        }
+        if (isNativeAuth()) {
+          await startNativeOAuth(provider)
           return {}
         }
-        await new Promise((resolve) => window.setTimeout(resolve, 550))
-        const providerName = provider[0]?.toUpperCase() + provider.slice(1)
-        const profile: AuthProfile = {
-          id: `demo-${provider}-user`,
-          email: `${provider}.demo@fairshare.app`,
-          name: provider === 'apple' ? 'Apple User' : `${providerName} User`,
+        const { error } = await supabase.auth.signInWithOAuth({
           provider,
-          isDemo: true,
-        }
-        saveDemoSession(profile)
-        setUser(profile)
+          options: { redirectTo: getAuthRedirectUrl() },
+        })
+        if (error) throw error
         return {}
       } catch (caught) {
         throw friendlyError(caught)

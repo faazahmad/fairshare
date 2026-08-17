@@ -23,11 +23,12 @@ export function shortName(user: User, currentUserId: string): string {
 }
 
 export function groupBalance(state: LedgerState, group: Group, userId = state.currentUserId): number {
+  const currency = state.users.find((user) => user.id === state.currentUserId)?.defaultCurrency ?? 'INR'
   return calculateBalances(
     group.memberIds,
     state.expenses.filter((entry) => entry.groupId === group.id),
     state.payments.filter((entry) => entry.groupId === group.id),
-    'INR',
+    currency,
   )[userId] ?? 0
 }
 
