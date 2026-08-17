@@ -17,24 +17,26 @@ export function parseDateOnly(value: string): Date {
   return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12)
 }
 
-export function formatDateOnly(value: string, options: Intl.DateTimeFormatOptions): string {
-  return new Intl.DateTimeFormat('en-IN', options).format(parseDateOnly(value))
+export function formatDateOnly(value: string, options: Intl.DateTimeFormatOptions, locale = 'en-IN'): string {
+  return new Intl.DateTimeFormat(locale, options).format(parseDateOnly(value))
 }
 
-export function formatTodayHeading(date = new Date()): string {
-  return new Intl.DateTimeFormat('en-IN', {
+export function formatTodayHeading(date = new Date(), locale = 'en-IN'): string {
+  return new Intl.DateTimeFormat(locale, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
   }).format(date)
 }
 
-export function formatCurrentMonth(date = new Date()): string {
-  return new Intl.DateTimeFormat('en-IN', { month: 'long' }).format(date)
+export function formatCurrentMonth(date = new Date(), locale = 'en-IN'): string {
+  return new Intl.DateTimeFormat(locale, { month: 'long' }).format(date)
 }
 
-export function greetingForTime(date = new Date()): string {
+export function greetingForTime(date = new Date(), language = 'en'): string {
   const hour = date.getHours()
+  if (language === 'hi') return hour < 12 ? 'सुप्रभात' : hour < 17 ? 'नमस्कार' : 'शुभ संध्या'
+  if (language === 'es') return hour < 12 ? 'Buenos días' : hour < 20 ? 'Buenas tardes' : 'Buenas noches'
   if (hour < 12) return 'Good morning'
   if (hour < 17) return 'Good afternoon'
   return 'Good evening'

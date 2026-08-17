@@ -8,7 +8,7 @@ native plugins added only where platform capabilities are needed.
 
 - Responsive phone, tablet, and desktop layouts
 - Installable web-app manifest and offline application shell
-- Capacitor 8 configuration and Android/iOS packages
+- Capacitor 8 configuration, Android/iOS packages, and native OAuth handoff plugins
 - Shared integer-based financial domain layer and persistent local prototype data
 
 The placeholder application ID is `com.fairshare.app`. It must be replaced with
@@ -50,6 +50,11 @@ keystore, and a Google Play Console account.
 6. Prepare privacy policy, support URL, data-safety disclosures, screenshots,
    release notes, content ratings, and account-deletion flow.
 7. Run TestFlight and Play closed testing before production review.
+
+The shared code already opens social providers with Capacitor Browser and
+consumes callbacks through Capacitor App. Native project generation is still
+required before the custom URL scheme can be registered in AndroidManifest.xml
+and Info.plist.
 
 Do not generate signed release binaries using the temporary name or application
 ID. Store identity choices are difficult to change after publication.

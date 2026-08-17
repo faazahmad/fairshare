@@ -12,11 +12,22 @@ export function parseMoney(value: string): number | null {
 }
 
 export function formatMoney(amount: number, currency = 'INR'): string {
-  return new Intl.NumberFormat('en-IN', {
+  const locale = currency === 'USD' ? 'en-US' : currency === 'EUR' ? 'en-IE' : currency === 'GBP' ? 'en-GB' : 'en-IN'
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency,
     minimumFractionDigits: 2,
   }).format(amount / 100)
+}
+
+export function currencySymbol(currency = 'INR'): string {
+  const locale = currency === 'USD' ? 'en-US' : currency === 'EUR' ? 'en-IE' : currency === 'GBP' ? 'en-GB' : 'en-IN'
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency,
+    currencyDisplay: 'narrowSymbol',
+    maximumFractionDigits: 0,
+  }).formatToParts(0).find((part) => part.type === 'currency')?.value ?? currency
 }
 
 function allocateByWeights(total: number, weightedUsers: Array<{ userId: ID; weight: number }>): Allocation[] {

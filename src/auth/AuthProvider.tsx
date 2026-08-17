@@ -39,7 +39,13 @@ function mapSupabaseUser(user: SupabaseUser): AuthProfile {
 function loadDemoSession(): AuthProfile | null {
   try {
     const stored = localStorage.getItem(DEMO_SESSION_KEY)
-    return stored ? JSON.parse(stored) as AuthProfile : null
+    if (!stored) return null
+    const profile = JSON.parse(stored) as AuthProfile
+    if (profile.provider !== 'email') {
+      localStorage.removeItem(DEMO_SESSION_KEY)
+      return null
+    }
+    return profile
   } catch {
     return null
   }
@@ -141,6 +147,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       mounted = false
     }
+  }, [])
+
+  useEffect(() => {
+    if (!supabase || !isNativeAuth()) return
+    let removeListener: (() => Promise<void>) | undefined
+    void listenForNativeOAuth().then((remove) => { removeListener = remove })
+    return () => { void removeListener?.() }
   }, [])
 
   const value = useMemo<AuthContextValue>(() => ({

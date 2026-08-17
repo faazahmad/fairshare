@@ -62,21 +62,28 @@ export function useLedger() {
   }
 
   function updateCurrentUser(profile: Partial<Pick<User, 'name' | 'email' | 'avatarUrl' | 'phone' | 'instagramHandle' | 'defaultCurrency' | 'language'>>) {
-    setState((current) => ({
-      ...current,
-      users: current.users.map((user) => user.id === current.currentUserId
-        ? {
-            ...user,
-            ...profile,
-            initials: (profile.name ?? user.name)
-              .split(/\s+/)
-              .filter(Boolean)
-              .slice(0, 2)
-              .map((part) => part[0]?.toUpperCase() ?? '')
-              .join(''),
-          }
-        : user),
-    }))
+    setState((current) => {
+      const currentUser = current.users.find((user) => user.id === current.currentUserId)
+      const nextCurrency = profile.defaultCurrency
+      const currencyChanged = Boolean(nextCurrency && nextCurrency !== (currentUser?.defaultCurrency ?? 'INR'))
+      return {
+        ...current,
+        users: current.users.map((user) => user.id === current.currentUserId
+          ? {
+              ...user,
+              ...profile,
+              initials: (profile.name ?? user.name)
+                .split(/\s+/)
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((part) => part[0]?.toUpperCase() ?? '')
+                .join(''),
+            }
+          : user),
+        expenses: currencyChanged ? current.expenses.map((expense) => ({ ...expense, currency: nextCurrency! })) : current.expenses,
+        payments: currencyChanged ? current.payments.map((payment) => ({ ...payment, currency: nextCurrency! })) : current.payments,
+      }
+    })
   }
 
   function resetDemo() {

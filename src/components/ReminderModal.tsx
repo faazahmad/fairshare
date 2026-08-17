@@ -27,7 +27,7 @@ export function ReminderModal({ debt, group, currentUser, targetUser, onClose }:
 
   const message = useMemo(() => {
     if (!debt || !group || !currentUser || !targetUser) return ''
-    const amount = formatMoney(debt.amount, 'INR')
+    const amount = formatMoney(debt.amount, currentUser.defaultCurrency ?? 'INR')
     if (tone === 'direct') return `Hi ${targetUser.name.split(' ')[0]}, this is a reminder that ${amount} is outstanding in our “${group.name}” group on Fairshare. Please settle it when you can. — ${currentUser.name.split(' ')[0]}`
     if (tone === 'playful') return `Hey ${targetUser.name.split(' ')[0]} 👋 Fairshare says ${amount} from “${group.name}” is still on a little holiday 😄 Send it home when you get a chance! — ${currentUser.name.split(' ')[0]}`
     return `Hey ${targetUser.name.split(' ')[0]}, just a friendly reminder about the ${amount} balance from “${group.name}” on Fairshare. No rush—please settle it whenever convenient. Thanks! — ${currentUser.name.split(' ')[0]}`
@@ -66,7 +66,7 @@ export function ReminderModal({ debt, group, currentUser, targetUser, onClose }:
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
       <section className="modal reminder-modal" role="dialog" aria-modal="true" aria-labelledby="reminder-title" onMouseDown={(event) => event.stopPropagation()}>
         <header className="modal__header"><div><span className="eyebrow"><Sparkles size={12} /> Smart reminder</span><h2 id="reminder-title">Nudge {targetUser.name.split(' ')[0]}</h2></div><button className="icon-button" onClick={onClose} aria-label="Close"><X size={20} /></button></header>
-        <div className="reminder-balance"><span>{group.emoji}</span><div><small>Outstanding in {group.name}</small><strong>{formatMoney(debt.amount, 'INR')}</strong></div></div>
+        <div className="reminder-balance"><span>{group.emoji}</span><div><small>Outstanding in {group.name}</small><strong>{formatMoney(debt.amount, currentUser.defaultCurrency ?? 'INR')}</strong></div></div>
         <label className="field"><span>Reminder tone</span><div className="segmented-control reminder-tones">{(['gentle', 'direct', 'playful'] as Tone[]).map((value) => <button type="button" className={tone === value ? 'is-active' : ''} onClick={() => setTone(value)} key={value}>{value[0]?.toUpperCase()}{value.slice(1)}</button>)}</div></label>
         <label className="field"><span>WhatsApp number <small>optional, with country code</small></span><input inputMode="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="e.g. 919876543210" /></label>
         <label className="field"><span>Prepared message</span><textarea rows={5} value={message} readOnly /></label>

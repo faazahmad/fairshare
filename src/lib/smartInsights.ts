@@ -20,7 +20,8 @@ export interface SmartInsights {
 export function buildSmartInsights(state: LedgerState, group: Group): SmartInsights {
   const expenses = state.expenses.filter((expense) => expense.groupId === group.id)
   const payments = state.payments.filter((payment) => payment.groupId === group.id)
-  const balances = calculateBalances(group.memberIds, expenses, payments, 'INR')
+  const currency = state.users.find((user) => user.id === state.currentUserId)?.defaultCurrency ?? 'INR'
+  const balances = calculateBalances(group.memberIds, expenses, payments, currency)
   const debts = simplifyDebts(balances)
   const currentBalance = balances[state.currentUserId] ?? 0
   const largestDebt = [...debts].sort((a, b) => b.amount - a.amount)[0]

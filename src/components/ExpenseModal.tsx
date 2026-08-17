@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CalendarDays, Check, IndianRupee, ReceiptText, X } from 'lucide-react'
+import { CalendarDays, Check, ReceiptText, X } from 'lucide-react'
 import type { Expense, Group, SplitMode, User } from '../domain/types'
 import {
-  parseMoney,
+  currencySymbol, parseMoney,
   splitByPercentages,
   splitByShares,
   splitEqually,
@@ -17,6 +17,7 @@ interface ExpenseModalProps {
   group: Group
   users: User[]
   currentUserId: string
+  currency: string
   onClose: () => void
   onSave: (expense: Expense) => void
 }
@@ -34,6 +35,7 @@ export function ExpenseModal({
   group,
   users,
   currentUserId,
+  currency,
   onClose,
   onSave,
 }: ExpenseModalProps) {
@@ -134,7 +136,7 @@ export function ExpenseModal({
         description: description.trim(),
         notes: notes.trim() || undefined,
         category,
-        currency: 'INR',
+        currency: expense?.currency ?? currency,
         amount: total,
         occurredAt: date,
         createdAt: expense?.createdAt ?? timestamp,
@@ -148,7 +150,7 @@ export function ExpenseModal({
     }
   }
 
-  const suffix = splitMode === 'percentage' ? '%' : splitMode === 'shares' ? '×' : '₹'
+  const suffix = splitMode === 'percentage' ? '%' : splitMode === 'shares' ? '×' : currencySymbol(expense?.currency ?? currency)
 
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
@@ -183,7 +185,7 @@ export function ExpenseModal({
               />
             </label>
             <label className="amount-field">
-              <IndianRupee size={25} />
+              <span className="currency-symbol" aria-hidden="true">{currencySymbol(expense?.currency ?? currency)}</span>
               <span className="sr-only">Amount</span>
               <input
                 className="line-input line-input--amount"
