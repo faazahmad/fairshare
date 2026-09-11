@@ -603,13 +603,33 @@ export function PayLendPage({ state, topbar }: { state: LedgerState; topbar: Rea
   }
 
   return (
-    <main className="main-panel page-panel" id="top">{topbar}<div className="content page-content pay-page">
-      <section className="pay-hero"><div><span className="coming-soon-pill"><Sparkles size={13} /> Work in progress · introducing soon</span><h1>Pay, lend, or split<br />in a single moment.</h1><p>A new Fairshare space for moving money and recording it at the same time—designed for speed, clarity, and explicit confirmation.</p><div className="pay-hero__actions"><button className={`button ${joined ? 'button--soft' : 'button--primary'}`} onClick={() => setJoined(true)}>{joined ? <><Check size={17} /> You’re on the preview list</> : <><BellRing size={17} /> Join early access</>}</button><span>No live payment connection is active yet.</span></div></div><div className="pay-phone-preview"><header><span>Pay & Lend</span><i>Interactive preview</i></header><div className="pay-orb"><HandCoins size={31} /><strong>{previewAmount ? formatMoney(previewAmount, currency) : `${currencySymbol(currency)}0.00`}</strong><span>to {recipient?.name.split(' ')[0] ?? 'a friend'} · {selectedMethod.title}</span></div><button type="button"><Mic size={18} /> “Split dinner with {recipient?.name.split(' ')[0] ?? 'a friend'}”</button><footer><ShieldCheck size={14} /> Review before anything is sent</footer></div></section>
+    <main className="main-panel page-panel" id="top">
+      {topbar}
+      <div className="content page-content">
+        <section className="page-hero">
+          <div>
+            <span className="page-hero__icon"><HandCoins size={24} /></span>
+            <div>
+              <span className="eyebrow">Money & Commitments Hub</span>
+              <h1>Upcoming Bills & Money Requests</h1>
+              <p>Track due bills with automated recurring reminders, request money with expiration deadlines, and connect with contacts.</p>
+            </div>
+          </div>
+        </section>
 
-      <section className="pay-method-section">
-        <div className="section-heading"><div><h2>Choose how you’ll pay</h2><p>Explore the wallet, UPI, debit-card, and credit-card flows before payment partners go live.</p></div><span className="preview-only-badge">Preview only</span></div>
-        <div className="payment-method-grid" role="radiogroup" aria-label="Payment method">
-          {methods.map(({ id, icon: Icon, title, copy, badge }) => <button key={id} type="button" role="radio" aria-checked={method === id} className={method === id ? 'is-active' : ''} onClick={() => { setMethod(id); setPreviewReady(false) }}><span><Icon size={21} /></span><span><strong>{title}</strong><small>{copy}</small></span><i>{badge}</i>{method === id && <Check size={15} />}</button>)}
+        {/* Tab Controls */}
+        <div className="activity-toolbar" style={{ marginTop: '1rem' }}>
+          <div className="segmented-control compact-tabs">
+            <button className={activeTab === 'bills' ? 'is-active' : ''} onClick={() => setActiveTab('bills')}>
+              <Calendar size={15} style={{ marginRight: 6 }} /> Upcoming Bills ({bills.filter((b) => b.status !== 'paid').length})
+            </button>
+            <button className={activeTab === 'requests' ? 'is-active' : ''} onClick={() => setActiveTab('requests')}>
+              <Clock size={15} style={{ marginRight: 6 }} /> Money Requests ({requests.filter((r) => r.status === 'open').length})
+            </button>
+            <button className={activeTab === 'contacts' ? 'is-active' : ''} onClick={() => setActiveTab('contacts')}>
+              <Users size={15} style={{ marginRight: 6 }} /> Phone Contacts ({contacts.length})
+            </button>
+          </div>
         </div>
         <form className="payment-preview-form" onSubmit={preparePreview}>
           <label className="field"><span>Pay to</span><select value={recipientId} onChange={(event) => { setRecipientId(event.target.value); setPreviewReady(false) }}>{recipients.map((user) => <option value={user.id} key={user.id}>{user.name}</option>)}</select></label>

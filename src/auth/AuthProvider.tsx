@@ -13,15 +13,32 @@ interface AuthContextValue {
   user: AuthProfile | null
   loading: boolean
   configured: boolean
-  demoCredentials: { email: string; password: string }
   signInWithEmail: (email: string, password: string) => Promise<AuthActionResult>
   signUpWithEmail: (name: string, email: string, password: string) => Promise<AuthActionResult>
   signInWithSocial: (provider: SocialProvider) => Promise<AuthActionResult>
   sendPasswordReset: (email: string) => Promise<AuthActionResult>
   signOut: () => Promise<void>
+  updateUser: (updates: Partial<AuthProfile>) => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
+
+function parseJwtPayload(token: string): { sub?: string; email?: string; role?: string; exp?: number; iat?: number } | null {
+  try {
+    const base64Url = token.split('.')[1]
+    if (!base64Url) return null
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join(''),
+    )
+    return JSON.parse(jsonPayload)
+  } catch {
+    return null
+  }
+}
 
 function mapSupabaseUser(user: SupabaseUser): AuthProfile {
   const metadata = user.user_metadata ?? {}
@@ -32,28 +49,9 @@ function mapSupabaseUser(user: SupabaseUser): AuthProfile {
     name: metadata.full_name || metadata.name || user.email?.split('@')[0] || 'Fairshare member',
     avatarUrl: metadata.avatar_url || metadata.picture,
     provider: provider === 'google' || provider === 'apple' || provider === 'github' ? provider : 'email',
+    onboardingStep: 'done',
     isDemo: false,
   }
-}
-
-function loadDemoSession(): AuthProfile | null {
-  try {
-    const stored = localStorage.getItem(DEMO_SESSION_KEY)
-    if (!stored) return null
-    const profile = JSON.parse(stored) as AuthProfile
-    if (profile.provider !== 'email') {
-      localStorage.removeItem(DEMO_SESSION_KEY)
-      return null
-    }
-    return profile
-  } catch {
-    return null
-  }
-}
-
-function saveDemoSession(profile: AuthProfile | null) {
-  if (profile) localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(profile))
-  else localStorage.removeItem(DEMO_SESSION_KEY)
 }
 
 function friendlyError(caught: unknown): Error {
@@ -145,15 +143,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void initSession()
 
     return () => {
+      clearTimeout(fallbackTimer)
       mounted = false
     }
-  }, [])
-
-  useEffect(() => {
-    if (!supabase || !isNativeAuth()) return
-    let removeListener: (() => Promise<void>) | undefined
-    void listenForNativeOAuth().then((remove) => { removeListener = remove })
-    return () => { void removeListener?.() }
   }, [])
 
   const value = useMemo<AuthContextValue>(() => ({
@@ -204,6 +196,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           throw apiErr
         }
       } catch (caught) {
+        if (supabase) {
+          try {
+            const { error } = await supabase.auth.signInWithPassword({ email, password })
+            if (error) throw error
+            return {}
+          } catch {
+            // fall through to throw original
+          }
+        }
         throw friendlyError(caught)
       }
     },
@@ -331,7 +332,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       saveDemoSession(null)
       setUser(null)
     },
-  }), [loading, user])
+  }), [user])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

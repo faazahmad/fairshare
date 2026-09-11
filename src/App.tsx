@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import type { Expense, Group } from './domain/types'
 import type { Debt, Payment } from './domain/types'
 import { useLedger } from './store/useLedger'
@@ -8,22 +8,25 @@ import { findUser } from './lib/ledger'
 import { AppNavigation, type AppView } from './components/AppNavigation'
 import { AppTopbar } from './components/AppTopbar'
 import { MobileNavigation } from './components/MobileNavigation'
-import { ExpenseModal } from './components/ExpenseModal'
-import { SettleModal } from './components/SettleModal'
-import { CreateGroupModal } from './components/CreateGroupModal'
-import { ExpenseDetailModal } from './components/ExpenseDetailModal'
-import { PaymentDetailModal } from './components/PaymentDetailModal'
-import { ReminderModal } from './components/ReminderModal'
-import { PaymentShareModal } from './components/PaymentShareModal'
-import { SmartAssistantModal } from './components/SmartAssistantModal'
-import { HomePage } from './pages/HomePage'
-import { GroupPage } from './pages/GroupPage'
-import { ActivityPage } from './pages/ActivityPage'
-import { GroupsPage } from './pages/GroupsPage'
-import { SettingsPage, type SettingsSection } from './pages/SettingsPage'
-import { PayLendPage } from './pages/PayLendPage'
 import { useAuth } from './auth/AuthProvider'
 import { localeForLanguage, resolveLanguage } from './lib/i18n'
+import type { SettingsSection } from './pages/SettingsPage'
+
+const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })))
+const GroupPage = lazy(() => import('./pages/GroupPage').then((m) => ({ default: m.GroupPage })))
+const ActivityPage = lazy(() => import('./pages/ActivityPage').then((m) => ({ default: m.ActivityPage })))
+const GroupsPage = lazy(() => import('./pages/GroupsPage').then((m) => ({ default: m.GroupsPage })))
+const SettingsPage = lazy(() => import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
+const PayLendPage = lazy(() => import('./pages/PayLendPage').then((m) => ({ default: m.PayLendPage })))
+
+const ExpenseModal = lazy(() => import('./components/ExpenseModal').then((m) => ({ default: m.ExpenseModal })))
+const SettleModal = lazy(() => import('./components/SettleModal').then((m) => ({ default: m.SettleModal })))
+const CreateGroupModal = lazy(() => import('./components/CreateGroupModal').then((m) => ({ default: m.CreateGroupModal })))
+const ExpenseDetailModal = lazy(() => import('./components/ExpenseDetailModal').then((m) => ({ default: m.ExpenseDetailModal })))
+const PaymentDetailModal = lazy(() => import('./components/PaymentDetailModal').then((m) => ({ default: m.PaymentDetailModal })))
+const ReminderModal = lazy(() => import('./components/ReminderModal').then((m) => ({ default: m.ReminderModal })))
+const PaymentShareModal = lazy(() => import('./components/PaymentShareModal').then((m) => ({ default: m.PaymentShareModal })))
+const SmartAssistantModal = lazy(() => import('./components/SmartAssistantModal').then((m) => ({ default: m.SmartAssistantModal })))
 
 const LAST_SYNCED_AUTH_KEY = 'fairshare-last-synced-auth-id'
 const RECENT_GROUPS_KEY = 'fairshare-recent-groups-v1'
@@ -214,31 +217,92 @@ export default function App() {
     />
   ), [state, currentUser, currentView, query, notificationsOpen, notificationsUnread, notifications])
 
-  if (!group) {
-    return <><main className="empty-state"><button className="button button--primary" onClick={openCreateGroup}>Create your first group</button></main><CreateGroupModal open={createGroupOpen} users={state.users} currentUserId={state.currentUserId} onClose={() => setCreateGroupOpen(false)} onSave={saveGroup} /></>
+  const defaultGroup: Group = {
+    id: '',
+    name: 'New Group',
+    kind: 'other',
+    emoji: '💰',
+    memberIds: [state.currentUserId],
+    simplifyDebts: true,
   }
+
+  const activeGroup = group || defaultGroup
 
   return (
     <div className={`app-shell ${currentView === 'expenses' ? '' : 'app-shell--wide'}`}>
-      <AppNavigation state={state} currentView={currentView} selectedGroupId={group.id} recentGroupIds={recentGroupIds} onNavigate={navigate} onSelectGroup={openGroup} onCreateGroup={openCreateGroup} />
+      <AppNavigation state={state} currentView={currentView} selectedGroupId={activeGroup.id} recentGroupIds={recentGroupIds} onNavigate={navigate} onSelectGroup={openGroup} onCreateGroup={openCreateGroup} />
 
-      {currentView === 'home' && <HomePage state={state} onOpenGroup={openGroup} onAddExpense={openAddExpense} onCreateGroup={openCreateGroup} topbar={topbar} />}
-      {currentView === 'expenses' && <GroupPage state={state} group={group} query={query} onAddExpense={openAddExpense} onSettle={() => openSettle()} onManageGroup={() => openManageGroup(group.id)} onOpenExpense={setSelectedExpense} onOpenPayment={setSelectedPayment} onRemind={openReminder} onOpenSmart={() => setSmartOpen(true)} topbar={topbar} />}
-      {currentView === 'activity' && <ActivityPage state={state} query={query} onOpenExpense={setSelectedExpense} onOpenPayment={setSelectedPayment} onOpenNotificationSettings={() => openSettings('notifications')} topbar={topbar} />}
-      {currentView === 'groups' && <GroupsPage state={state} onCreateGroup={openCreateGroup} onOpenGroup={openGroup} onManageGroup={openManageGroup} topbar={topbar} />}
-      {currentView === 'pay' && <PayLendPage state={state} topbar={topbar} />}
-      {currentView === 'settings' && <SettingsPage user={currentUser} activeSection={settingsSection} preferences={preferences} notifications={notifications} security={security} authProvider={authUser?.provider ?? 'email'} onSectionChange={setSettingsSection} onSaveProfile={updateCurrentUser} onUpdatePreferences={updatePreferences} onUpdateNotifications={updateNotifications} onUpdateSecurity={updateSecurity} onResetPassword={async () => (await sendPasswordReset(currentUser.email)).message ?? 'Password reset instructions sent.'} onSignOut={() => void signOut()} topbar={topbar} />}
+      <Suspense fallback={<div className="page-content" style={{ minHeight: '60vh', display: 'grid', placeItems: 'center', color: 'var(--muted)' }}>Loading...</div>}>
+        {currentView === 'home' && <HomePage state={state} onOpenGroup={openGroup} onAddExpense={openAddExpense} onCreateGroup={openCreateGroup} topbar={topbar} />}
+        {currentView === 'expenses' && (
+          group ? (
+            <GroupPage state={state} group={group} query={query} onAddExpense={openAddExpense} onSettle={() => openSettle()} onManageGroup={() => openManageGroup(group.id)} onOpenExpense={setSelectedExpense} onOpenPayment={setSelectedPayment} onRemind={openReminder} onOpenSmart={() => setSmartOpen(true)} topbar={topbar} />
+          ) : (
+            <main className="main-panel page-panel" id="top">
+              {topbar}
+              <div className="content page-content">
+                <section className="empty-group-hero">
+                  <div className="empty-group-hero__card">
+                    <span className="empty-group-hero__icon">👥</span>
+                    <h2>No groups yet</h2>
+                    <p>Create your first group to start splitting expenses, tracking shared bills, and settling up with friends.</p>
+                    <button className="button button--primary" onClick={openCreateGroup}>
+                      Create your first group
+                    </button>
+                  </div>
+                </section>
+              </div>
+            </main>
+          )
+        )}
+        {currentView === 'activity' && <ActivityPage state={state} query={query} onOpenExpense={setSelectedExpense} onOpenPayment={setSelectedPayment} onOpenNotificationSettings={() => openSettings('notifications')} topbar={topbar} />}
+        {currentView === 'groups' && <GroupsPage state={state} onCreateGroup={openCreateGroup} onOpenGroup={openGroup} onManageGroup={openManageGroup} topbar={topbar} />}
+        {currentView === 'pay' && <PayLendPage topbar={topbar} />}
+        {currentView === 'settings' && <SettingsPage user={currentUser} activeSection={settingsSection} preferences={preferences} notifications={notifications} security={security} authProvider={authUser?.provider ?? 'email'} onSectionChange={setSettingsSection} onSaveProfile={updateCurrentUser} onUpdatePreferences={updatePreferences} onUpdateNotifications={updateNotifications} onUpdateSecurity={updateSecurity} onResetPassword={async () => (await sendPasswordReset(currentUser.email)).message ?? 'Password reset instructions sent.'} onSignOut={() => void signOut()} topbar={topbar} />}
+      </Suspense>
 
       <MobileNavigation currentView={currentView} language={language} onNavigate={navigate} />
 
-      <ExpenseModal open={expenseOpen} expense={editingExpense} group={group} users={state.users} currentUserId={state.currentUserId} currency={currency} onClose={() => { setExpenseOpen(false); setEditingExpense(null) }} onSave={saveExpense} />
-      <SettleModal open={settleOpen} payment={editingPayment} suggestedDebt={suggestedDebt} group={group} users={state.users} currentUserId={state.currentUserId} currency={currency} onClose={() => { setSettleOpen(false); setEditingPayment(null); setSuggestedDebt(null) }} onSave={savePayment} />
-      <CreateGroupModal open={createGroupOpen} group={editingGroup} users={state.users} currentUserId={state.currentUserId} lockedMemberIds={lockedMemberIds} onClose={() => { setCreateGroupOpen(false); setEditingGroup(null) }} onSave={saveGroup} onDelete={removeGroup} />
-      <ExpenseDetailModal expense={selectedExpense} group={selectedExpense ? state.groups.find((entry) => entry.id === selectedExpense.groupId) : undefined} users={state.users} onClose={() => setSelectedExpense(null)} onEdit={editExpense} onDelete={deleteExpense} requireDeleteConfirmation={security.confirmSensitiveActions} />
-      <PaymentDetailModal payment={selectedPayment} group={selectedPayment ? state.groups.find((entry) => entry.id === selectedPayment.groupId) : undefined} users={state.users} onClose={() => setSelectedPayment(null)} onEdit={editPayment} onShare={(payment) => { setSelectedPayment(null); setSharingPayment(payment) }} onDelete={deletePayment} requireDeleteConfirmation={security.confirmSensitiveActions} />
-      <ReminderModal debt={reminderDebt} group={reminderDebt ? group : undefined} currentUser={currentUser} targetUser={reminderDebt ? state.users.find((user) => user.id === reminderDebt.fromUserId) : undefined} onClose={() => setReminderDebt(null)} />
-      <PaymentShareModal payment={sharingPayment} group={sharingPayment ? state.groups.find((entry) => entry.id === sharingPayment.groupId) : undefined} currentUser={currentUser} targetUser={sharingPayment ? state.users.find((user) => user.id === (sharingPayment.fromUserId === state.currentUserId ? sharingPayment.toUserId : sharingPayment.fromUserId)) : undefined} onClose={() => setSharingPayment(null)} />
-      <SmartAssistantModal open={smartOpen} state={state} group={group} onClose={() => setSmartOpen(false)} onRemind={openReminder} onSettle={(debt) => { setSmartOpen(false); openSettle(debt) }} />
+      {expenseOpen && (
+        <Suspense fallback={null}>
+          <ExpenseModal open={expenseOpen} expense={editingExpense} group={activeGroup} users={state.users} currentUserId={state.currentUserId} currency={currency} onClose={() => { setExpenseOpen(false); setEditingExpense(null) }} onSave={saveExpense} />
+        </Suspense>
+      )}
+      {settleOpen && (
+        <Suspense fallback={null}>
+          <SettleModal open={settleOpen} payment={editingPayment} suggestedDebt={suggestedDebt} group={activeGroup} users={state.users} currentUserId={state.currentUserId} currency={currency} onClose={() => { setSettleOpen(false); setEditingPayment(null); setSuggestedDebt(null) }} onSave={savePayment} />
+        </Suspense>
+      )}
+      {createGroupOpen && (
+        <Suspense fallback={null}>
+          <CreateGroupModal open={createGroupOpen} group={editingGroup} users={state.users} currentUserId={state.currentUserId} lockedMemberIds={lockedMemberIds} onClose={() => { setCreateGroupOpen(false); setEditingGroup(null) }} onSave={saveGroup} onDelete={removeGroup} />
+        </Suspense>
+      )}
+      {selectedExpense && (
+        <Suspense fallback={null}>
+          <ExpenseDetailModal expense={selectedExpense} group={selectedExpense ? state.groups.find((entry) => entry.id === selectedExpense.groupId) : undefined} users={state.users} onClose={() => setSelectedExpense(null)} onEdit={editExpense} onDelete={deleteExpense} requireDeleteConfirmation={security.confirmSensitiveActions} />
+        </Suspense>
+      )}
+      {selectedPayment && (
+        <Suspense fallback={null}>
+          <PaymentDetailModal payment={selectedPayment} group={selectedPayment ? state.groups.find((entry) => entry.id === selectedPayment.groupId) : undefined} users={state.users} onClose={() => setSelectedPayment(null)} onEdit={editPayment} onShare={(payment) => { setSelectedPayment(null); setSharingPayment(payment) }} onDelete={deletePayment} requireDeleteConfirmation={security.confirmSensitiveActions} />
+        </Suspense>
+      )}
+      {reminderDebt && (
+        <Suspense fallback={null}>
+          <ReminderModal debt={reminderDebt} group={reminderDebt ? (group ?? activeGroup) : undefined} currentUser={currentUser} targetUser={reminderDebt ? state.users.find((user) => user.id === reminderDebt.fromUserId) : undefined} onClose={() => setReminderDebt(null)} />
+        </Suspense>
+      )}
+      {sharingPayment && (
+        <Suspense fallback={null}>
+          <PaymentShareModal payment={sharingPayment} group={sharingPayment ? state.groups.find((entry) => entry.id === sharingPayment.groupId) : undefined} currentUser={currentUser} targetUser={sharingPayment ? state.users.find((user) => user.id === (sharingPayment.fromUserId === state.currentUserId ? sharingPayment.toUserId : sharingPayment.fromUserId)) : undefined} onClose={() => setSharingPayment(null)} />
+        </Suspense>
+      )}
+      {smartOpen && (
+        <Suspense fallback={null}>
+          <SmartAssistantModal open={smartOpen} state={state} group={activeGroup} onClose={() => setSmartOpen(false)} onRemind={openReminder} onSettle={(debt) => { setSmartOpen(false); openSettle(debt) }} />
+        </Suspense>
+      )}
     </div>
   )
 }

@@ -13,7 +13,9 @@
     "mobile:add:ios": "cap add ios",
     "mobile:sync": "pnpm build && cap sync",
     "mobile:android": "pnpm mobile:sync && cap open android",
-    "mobile:ios": "pnpm mobile:sync && cap open ios"
+    "mobile:ios": "pnpm mobile:sync && cap open ios",
+    "mobile:android:build": "pnpm mobile:sync && cd android && ./gradlew app:assemble",
+    "mobile:android:emulator": "pnpm mobile:sync && cd android && ./gradlew app:installDebug"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.1",

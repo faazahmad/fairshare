@@ -5,6 +5,8 @@ export interface AuthProfile {
   email: string
   name: string
   avatarUrl?: string
+  phone?: string
+  onboardingStep?: string
   provider: 'email' | SocialProvider
   isDemo: boolean
 }
