@@ -99,3 +99,41 @@ export interface SecurityPreferences {
   loginAlerts: boolean
   confirmSensitiveActions: boolean
 }
+
+export interface Contact {
+  id: ID
+  userId: ID
+  contactUserId?: ID
+  name: string
+  msisdn: string
+  addedAt: string
+}
+
+export interface UpcomingBill {
+  id: ID
+  groupId?: ID
+  description: string
+  currency: string
+  amountMinor: number
+  dueDate: string
+  recurrence: 'once' | 'weekly' | 'monthly' | 'yearly'
+  status: 'pending' | 'paid' | 'overdue'
+  assignedUserIds: ID[]
+  createdBy?: ID
+  createdAt?: string
+}
+
+export interface MoneyRequest {
+  id: ID
+  groupId?: ID
+  fromUserId: ID
+  toUserId: ID
+  currency: string
+  amountMinor: number
+  description: string
+  expiresAt: string
+  status: 'open' | 'settled' | 'expired' | 'cancelled'
+  createdAt: string
+}
+
+export type OnboardingStep = 'welcome' | 'profile' | 'contacts' | 'first-group' | 'done'

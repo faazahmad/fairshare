@@ -1,0 +1,30 @@
+services:
+  backend:
+    build:
+      context: ../fairshare_be
+      dockerfile: Dockerfile
+    container_name: fairshare-api
+    ports:
+      - "8080:8080"
+    env_file:
+      - ../fairshare_be/.env
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    container_name: fairshare-redis
+    expose:
+      - "6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
