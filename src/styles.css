@@ -1340,22 +1340,141 @@ h1, h2, .brand { font-family: Manrope, 'DM Sans', sans-serif; }
   gap: 16px;
 }
 
-.phone-input-row {
+.auth-field > .phone-input-row {
   display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 52px;
+  padding: 5px 7px;
+  overflow: visible;
+  position: relative;
+}
+
+.phone-input-row > input {
+  min-width: 0;
+  min-height: 40px;
+  padding-inline: 4px;
+  font-size: 13px;
+}
+
+.country-picker {
+  position: relative;
+  flex: 0 0 auto;
+  color: var(--ink);
+}
+
+.auth-field > div .country-picker__trigger {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: auto;
+  min-width: 103px;
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--forest-2) 24%, var(--line));
+  border-radius: 9px;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--mint) 54%, var(--surface));
+  box-shadow: 0 3px 10px rgb(22 54 48 / 6%);
+  transition: border-color .16s, background .16s, box-shadow .16s;
+}
+
+.auth-field > div .country-picker__trigger:hover,
+.auth-field > div .country-picker__trigger[aria-expanded='true'] {
+  border-color: var(--forest-2);
+  background: color-mix(in srgb, var(--mint) 78%, var(--surface));
+  box-shadow: 0 5px 16px rgb(22 54 48 / 10%);
+}
+
+.country-picker__flag {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.country-picker__trigger strong {
+  font-size: 11px;
+  letter-spacing: .15px;
+}
+
+.country-picker__trigger svg {
+  margin-left: auto;
+  color: var(--muted);
+  transition: transform .16s ease;
+}
+
+.country-picker__trigger svg.is-open { transform: rotate(180deg); }
+
+.country-picker__menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: -7px;
+  z-index: 40;
+  width: min(270px, calc(100vw - 62px));
+  max-height: min(260px, 34vh);
+  padding: 8px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid color-mix(in srgb, var(--forest-2) 22%, var(--line));
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 20px 55px rgb(12 36 31 / 20%);
+  animation: modal-up .14s ease;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--forest-2) 45%, transparent) transparent;
+}
+
+.country-picker__label {
+  display: block;
+  padding: 5px 8px 8px;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+}
+
+.auth-field > div .country-picker__option {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 20px;
   align-items: center;
   gap: 8px;
   width: 100%;
+  height: auto;
+  min-height: 47px;
+  padding: 7px 9px;
+  border-radius: 9px;
+  color: var(--ink);
+  background: transparent;
+  text-align: left;
 }
 
-.country-select {
-  border: 0;
-  background: transparent;
-  font-weight: 700;
-  font-size: 14px;
-  color: var(--forest);
-  padding: 0 4px;
-  cursor: pointer;
-  outline: none;
+.country-picker__option:hover,
+.country-picker__option.is-selected {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--mint) 68%, var(--surface));
+}
+
+.country-picker__option > span:first-child {
+  font-size: 19px;
+  line-height: 1;
+}
+
+.country-picker__option > span:nth-child(2) {
+  display: grid;
+  gap: 2px;
+}
+
+.country-picker__option strong { font-size: 10px; }
+.country-picker__option small { color: var(--muted); font-size: 8px; }
+.country-picker__option > svg { color: var(--forest-2); }
+
+@media (max-width: 390px) {
+  .auth-field > div .country-picker__trigger {
+    min-width: 92px;
+    padding-inline: 8px;
+  }
 }
 
 .otp-boxes-wrap {

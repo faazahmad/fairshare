@@ -4,6 +4,7 @@ import {
   ArrowRight,
   Check,
   CheckCircle2,
+  ChevronDown,
   Eye,
   EyeOff,
   KeyRound,
@@ -18,6 +19,16 @@ import { api } from '../lib/api'
 import { useAuth } from './AuthProvider'
 
 type CreateAccountStep = 'details' | 'phone' | 'otp'
+
+const defaultCountry = { code: '+91', flag: '🇮🇳', name: 'India' }
+
+const countryCodes = [
+  defaultCountry,
+  { code: '+1', flag: '🇺🇸', name: 'United States' },
+  { code: '+44', flag: '🇬🇧', name: 'United Kingdom' },
+  { code: '+971', flag: '🇦🇪', name: 'United Arab Emirates' },
+  { code: '+65', flag: '🇸🇬', name: 'Singapore' },
+]
 
 interface CreateAccountFlowProps {
   onBack: () => void
@@ -35,6 +46,8 @@ export function CreateAccountFlow({ onBack, onComplete }: CreateAccountFlowProps
   const [showPassword, setShowPassword] = useState(false)
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [countryCode, setCountryCode] = useState('+91')
+  const [countryMenuOpen, setCountryMenuOpen] = useState(false)
+  const countryPickerRef = useRef<HTMLDivElement | null>(null)
   const [phoneNumber, setPhoneNumber] = useState('')
   const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', ''])
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([])
@@ -62,7 +75,23 @@ export function CreateAccountFlow({ onBack, onComplete }: CreateAccountFlowProps
     return () => window.clearInterval(timer)
   }, [step, resendCooldown])
 
+  useEffect(() => {
+    function closeCountryMenu(event: PointerEvent) {
+      if (!countryPickerRef.current?.contains(event.target as Node)) setCountryMenuOpen(false)
+    }
+    function closeCountryMenuWithKeyboard(event: KeyboardEvent) {
+      if (event.key === 'Escape') setCountryMenuOpen(false)
+    }
+    window.addEventListener('pointerdown', closeCountryMenu)
+    window.addEventListener('keydown', closeCountryMenuWithKeyboard)
+    return () => {
+      window.removeEventListener('pointerdown', closeCountryMenu)
+      window.removeEventListener('keydown', closeCountryMenuWithKeyboard)
+    }
+  }, [])
+
   const fullPhone = `${countryCode}${phoneNumber.replace(/\D/g, '')}`
+  const selectedCountry = countryCodes.find((country) => country.code === countryCode) ?? defaultCountry
 
   function submitDetails(event: React.FormEvent) {
     event.preventDefault()
@@ -252,14 +281,42 @@ export function CreateAccountFlow({ onBack, onComplete }: CreateAccountFlowProps
               <label className="auth-field">
                 <span>Mobile number</span>
                 <div className="phone-input-row">
-                  <select className="country-select" value={countryCode} onChange={(event) => setCountryCode(event.target.value)}>
-                    <option value="+91">🇮🇳 +91</option>
-                    <option value="+1">🇺🇸 +1</option>
-                    <option value="+44">🇬🇧 +44</option>
-                    <option value="+971">🇦🇪 +971</option>
-                    <option value="+65">🇸🇬 +65</option>
-                  </select>
-                  <input autoFocus type="tel" autoComplete="tel-national" value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} placeholder="98765 43210" maxLength={14} />
+                  <div className="country-picker" ref={countryPickerRef}>
+                    <button
+                      className="country-picker__trigger"
+                      type="button"
+                      aria-expanded={countryMenuOpen}
+                      aria-controls="country-code-menu"
+                      onClick={() => setCountryMenuOpen((open) => !open)}
+                    >
+                      <span className="country-picker__flag">{selectedCountry.flag}</span>
+                      <strong>{selectedCountry.code}</strong>
+                      <ChevronDown size={15} className={countryMenuOpen ? 'is-open' : ''} />
+                    </button>
+                    {countryMenuOpen && (
+                      <div className="country-picker__menu" id="country-code-menu" role="listbox" aria-label="Choose country code">
+                        <span className="country-picker__label">Country code</span>
+                        {countryCodes.map((country) => (
+                          <button
+                            className={`country-picker__option ${country.code === countryCode ? 'is-selected' : ''}`}
+                            type="button"
+                            role="option"
+                            aria-selected={country.code === countryCode}
+                            key={country.name}
+                            onClick={() => {
+                              setCountryCode(country.code)
+                              setCountryMenuOpen(false)
+                            }}
+                          >
+                            <span>{country.flag}</span>
+                            <span><strong>{country.name}</strong><small>{country.code}</small></span>
+                            {country.code === countryCode && <Check size={15} />}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <input aria-label="Mobile number" autoFocus type="tel" autoComplete="tel-national" value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} placeholder="98765 43210" maxLength={14} />
                 </div>
               </label>
               {error && <p className="auth-alert auth-alert--error" role="alert">{error}</p>}
