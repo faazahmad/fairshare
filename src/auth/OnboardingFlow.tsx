@@ -183,6 +183,7 @@ export function OnboardingFlow({ user, onComplete }: OnboardingFlowProps) {
         await api.users.updateOnboarding('done')
       } catch (err) {
         console.warn('Backend updateProfile during onboarding caught', err)
+        throw err
       }
 
       // Update local auth context user

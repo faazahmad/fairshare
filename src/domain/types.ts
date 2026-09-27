@@ -11,6 +11,7 @@ export interface User {
   instagramHandle?: string
   defaultCurrency?: string
   language?: string
+  onboardingStep?: string
 }
 
 export type GroupKind = 'trip' | 'home' | 'couple' | 'other'

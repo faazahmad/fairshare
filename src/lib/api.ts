@@ -120,6 +120,18 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ refreshToken }),
       }),
+
+    sendOtp: (phone: string) =>
+      request<{ phone: string; message: string }>('/auth/otp/send', {
+        method: 'POST',
+        body: JSON.stringify({ phone }),
+      }),
+
+    verifyOtp: (phone: string, code: string) =>
+      request<{ phone: string; verified: boolean }>('/auth/otp/verify', {
+        method: 'POST',
+        body: JSON.stringify({ phone, code }),
+      }),
   },
 
   users: {
@@ -169,6 +181,7 @@ export const api = {
         rawBalances: Record<string, number>
         simplifiedDebts: Array<{ fromUserId: string; toUserId: string; amountMinor: number }>
       }>(`/groups/${groupId}/balances${currency ? `?currency=${currency}` : ''}`),
+    getMembers: (groupId: string) => request<User[]>(`/groups/${groupId}/members`),
   },
 
   expenses: {

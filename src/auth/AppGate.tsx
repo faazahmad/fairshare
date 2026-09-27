@@ -10,11 +10,11 @@ export function AppGate() {
   const [onboardingBypassed, setOnboardingBypassed] = useState(false)
   const [splashDismissed, setSplashDismissed] = useState(false)
 
-  // Redirect to authentication page on first touch or after 3 seconds
+  // Show splash screen for exactly 2 seconds or until user interaction
   useEffect(() => {
     const timer = setTimeout(() => {
       setSplashDismissed(true)
-    }, 3000)
+    }, 2000)
 
     const handleTouchOrClick = () => {
       setSplashDismissed(true)
@@ -34,18 +34,8 @@ export function AppGate() {
     }
   }, [])
 
-  // If user is already authenticated (e.g. from Google OAuth callback)
-  if (user) {
-    const isFirstTimeUser = !user.onboardingStep || user.onboardingStep !== 'done' || !user.phone
-    const needsOnboarding = !onboardingBypassed && isFirstTimeUser
-    if (needsOnboarding) {
-      return <OnboardingFlow user={user} onComplete={() => setOnboardingBypassed(true)} />
-    }
-    return <App />
-  }
-
-  // If not yet dismissed (less than 3 seconds and no user touch) or still initializing initial auth
-  if (loading || !splashDismissed) {
+  // 1. Show the splash screen for the initial 2s
+  if (!splashDismissed) {
     return (
       <main
         className="auth-splash"
@@ -61,6 +51,16 @@ export function AppGate() {
     )
   }
 
-  // Render authentication page
+  // 2. If user is authenticated
+  if (user) {
+    const isFirstTimeUser = !user.onboardingStep || user.onboardingStep !== 'done' || !user.phone
+    const needsOnboarding = !onboardingBypassed && isFirstTimeUser
+    if (needsOnboarding) {
+      return <OnboardingFlow user={user} onComplete={() => setOnboardingBypassed(true)} />
+    }
+    return <App />
+  }
+
+  // 3. If splash dismissed and user is not authenticated, show login
   return <LoginPage />
 }
