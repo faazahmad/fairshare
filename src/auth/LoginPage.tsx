@@ -21,6 +21,7 @@ type AuthMode = 'signin' | 'reset'
 
 interface LoginPageProps {
   notice?: string
+  initialError?: string
   onCreateAccount: () => void
 }
 
@@ -32,14 +33,14 @@ function GitHubMark({ size = 19 }: { size?: number }) {
   )
 }
 
-export function LoginPage({ notice = '', onCreateAccount }: LoginPageProps) {
+export function LoginPage({ notice = '', initialError = '', onCreateAccount }: LoginPageProps) {
   const { signInWithEmail, signInWithSocial, sendPasswordReset } = useAuth()
   const [mode, setMode] = useState<AuthMode>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [pending, setPending] = useState<string | null>(null)
-  const [error, setError] = useState('')
+  const [error, setError] = useState(initialError)
   const [message, setMessage] = useState(notice)
 
   function switchMode(nextMode: AuthMode) {

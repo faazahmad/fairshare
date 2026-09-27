@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { AuthActionResult, AuthProfile, SocialProvider } from './types'
-import { api, ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY } from '../lib/api'
+import { api, ApiError, ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY } from '../lib/api'
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1').replace(/\/$/, '')
 const OAUTH_PROVIDER_KEY = 'fairshare-oauth-provider'
@@ -8,6 +8,8 @@ const OAUTH_PROVIDER_KEY = 'fairshare-oauth-provider'
 interface AuthContextValue {
   user: AuthProfile | null
   loading: boolean
+  oauthError: string | null
+  clearOAuthError: () => void
   signInWithEmail: (email: string, password: string) => Promise<AuthActionResult>
   signUpWithEmail: (name: string, email: string, password: string, phone?: string) => Promise<AuthActionResult>
   signInWithSocial: (provider: SocialProvider) => Promise<AuthActionResult>
@@ -42,14 +44,15 @@ function profileFromApi(
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthProfile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [oauthError, setOauthError] = useState<string | null>(null)
 
   useEffect(() => {
     let mounted = true
     const fallbackTimer = window.setTimeout(() => {
       if (mounted) setLoading(false)
-    }, 1800)
+    }, 8000)
 
-    const withTimeout = <T,>(promise: Promise<T>, ms = 1500): Promise<T> =>
+    const withTimeout = <T,>(promise: Promise<T>, ms = 8000): Promise<T> =>
       Promise.race([
         promise,
         new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error('Authentication check timed out.')), ms)),
@@ -60,36 +63,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const params = new URLSearchParams(window.location.search)
         const accessToken = params.get('access_token')
         const refreshToken = params.get('refresh_token')
-        const oauthError = params.get('error')
+        const errorParam = params.get('error')
         const pendingProvider = localStorage.getItem(OAUTH_PROVIDER_KEY)
         const provider = pendingProvider === 'github' || pendingProvider === 'google' ? pendingProvider : 'email'
 
-        if (oauthError) {
+        if (errorParam) {
           localStorage.removeItem(OAUTH_PROVIDER_KEY)
-          window.history.replaceState({}, document.title, window.location.pathname)
-          throw new Error(oauthError)
+          window.history.replaceState({}, document.title, '/')
+          if (mounted) {
+            setOauthError(errorParam)
+          }
+          return
         }
 
         if (accessToken && refreshToken) {
           localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
           localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
           localStorage.removeItem(OAUTH_PROVIDER_KEY)
-          window.history.replaceState({}, document.title, window.location.pathname)
-          const profile = await withTimeout(api.users.getProfile())
-          if (mounted) {
-            setUser(profileFromApi(profile, provider))
-            setLoading(false)
+          window.history.replaceState({}, document.title, '/')
+          try {
+            const profile = await withTimeout(api.users.getProfile(), 8000)
+            if (mounted) {
+              setUser(profileFromApi(profile, provider))
+              setLoading(false)
+            }
+            return
+          } catch (e) {
+            console.warn('Could not fetch user profile with new tokens', e)
           }
-          return
         }
 
-        if (localStorage.getItem(ACCESS_TOKEN_KEY)) {
+        const storedToken = localStorage.getItem(ACCESS_TOKEN_KEY)
+        if (storedToken) {
           try {
-            const profile = await withTimeout(api.users.getProfile())
-            if (mounted) setUser(profileFromApi(profile))
-          } catch {
-            localStorage.removeItem(ACCESS_TOKEN_KEY)
-            localStorage.removeItem(REFRESH_TOKEN_KEY)
+            const profile = await withTimeout(api.users.getProfile(), 8000)
+            if (mounted) {
+              setUser(profileFromApi(profile))
+            }
+          } catch (err) {
+            console.warn('Could not restore the authentication session from storage.', err)
+            // Only remove stored tokens if server explicitly rejected with 401 Unauthorized
+            if (err instanceof ApiError && err.status === 401) {
+              localStorage.removeItem(ACCESS_TOKEN_KEY)
+              localStorage.removeItem(REFRESH_TOKEN_KEY)
+            }
           }
         }
       } catch (caught) {
@@ -109,6 +126,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthContextValue>(() => ({
     user,
     loading,
+    oauthError,
+    clearOAuthError() {
+      setOauthError(null)
+    },
 
     async signInWithEmail(email, password) {
       try {
@@ -170,7 +191,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     updateUser(updates) {
       setUser((current) => current ? { ...current, ...updates } : null)
     },
-  }), [loading, user])
+  }), [loading, user, oauthError])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

@@ -6,7 +6,7 @@ import { LoginPage } from './LoginPage'
 import { CreateAccountFlow } from './CreateAccountFlow'
 
 export function AppGate() {
-  const { user, loading } = useAuth()
+  const { user, loading, oauthError, clearOAuthError } = useAuth()
   const [creatingAccount, setCreatingAccount] = useState(false)
   const [authNotice, setAuthNotice] = useState('')
 
@@ -25,5 +25,15 @@ export function AppGate() {
       />
     )
   }
-  return <LoginPage notice={authNotice} onCreateAccount={() => { setAuthNotice(''); setCreatingAccount(true) }} />
+  return (
+    <LoginPage
+      notice={authNotice}
+      initialError={oauthError ?? ''}
+      onCreateAccount={() => {
+        setAuthNotice('')
+        clearOAuthError()
+        setCreatingAccount(true)
+      }}
+    />
+  )
 }
