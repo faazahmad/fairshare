@@ -25,19 +25,19 @@ and does not contain Splitwise source code, branding, or private assets.
 - Persisted currency and language choices that update the ledger, dates, and core navigation
 - Android & iOS platform projects generated with Capacitor (point at a deployed backend via the `.env` file)
 
-## Configure the deployed backend (Render)
+## Configure the deployed backend
 
 All backend URLs are driven by environment variables — no localhost is hard-coded.
 
 1. Copy `.env.example` to `.env` (already created), then fill in:
 
    ```dotenv
-   VITE_API_BASE_URL=https://YOUR-APP-NAME.onrender.com/api/v1
+   VITE_API_BASE_URL=https://api.yourdomain.com/api/v1
    VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
    VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_REPLACE_ME
    ```
 
-2. The backend on Render already allows all CORS origins (`*`), so the app and its
+2. Configure CORS origins on the backend so the web app and its
    WebSocket channel can reach it from the web AND from the installed Android/iOS builds.
 3. The native auth redirect uses `com.fairshare.app://auth/callback` — add
    `com.fairshare.app://**` to your Supabase Auth redirect allow list, and ensure your
@@ -59,7 +59,7 @@ Prerequisites:
 - **iOS**: macOS only, Xcode, and an Apple ID for signing (iOS builds require Apple's toolchain).
 
 ```powershell
-# 1. Point VITE_API_BASE_URL at your Render backend in `.env` (above).
+# 1. Point VITE_API_BASE_URL at your backend in `.env` (above).
 
 # 2. Build the web app and copy it into both native projects, then open in an IDE:
 pnpm mobile:sync

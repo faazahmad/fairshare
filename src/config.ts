@@ -3,7 +3,7 @@
 //
 // All backend endpoints are driven by the VITE_API_BASE_URL environment
 // variable (defined in `.env`). No localhost URLs are hard-coded in source.
-// Point it at your deployed backend, e.g. https://<your-app>.onrender.com/api/v1
+// Point it at your deployed backend, e.g. https://api.yourdomain.com/api/v1
 // -----------------------------------------------------------------------------
 
 const envUrl = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '')
@@ -20,7 +20,7 @@ if (normalizedApiBaseUrl) {
   normalizedApiBaseUrl = 'http://localhost:8080/api/v1'
 } else {
   console.warn(
-    '[config] VITE_API_BASE_URL is not set. Add it to your `.env` or Render environment (e.g. VITE_API_BASE_URL=https://<your-app>.onrender.com/api/v1).',
+    '[config] VITE_API_BASE_URL is not set. Add it to your `.env` or deployment environment (e.g. VITE_API_BASE_URL=https://api.yourdomain.com/api/v1).',
   )
 }
 
