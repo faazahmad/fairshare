@@ -18,21 +18,22 @@ import {
 import { useAuth } from './AuthProvider'
 import type { SocialProvider } from './types'
 
-type AuthMode = 'signin' | 'signup' | 'reset'
+type AuthMode = 'signin' | 'reset'
 
-export function LoginPage() {
-  const { configured, demoCredentials, signInWithEmail, signUpWithEmail, signInWithSocial, sendPasswordReset } = useAuth()
+interface LoginPageProps {
+  notice?: string
+  onCreateAccount: () => void
+}
+
+export function LoginPage({ notice = '', onCreateAccount }: LoginPageProps) {
+  const { signInWithEmail, signInWithSocial, sendPasswordReset } = useAuth()
   const [mode, setMode] = useState<AuthMode>('signin')
-  const [firstName, setFirstName] = useState('')
-  const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [pending, setPending] = useState<string | null>(null)
   const [error, setError] = useState('')
-  const [message, setMessage] = useState('')
+  const [message, setMessage] = useState(notice)
 
   function switchMode(nextMode: AuthMode) {
     setMode(nextMode)
@@ -53,23 +54,13 @@ export function LoginPage() {
       validateEmail()
       if (mode === 'reset') {
         setPending('reset')
-        const result = await sendPasswordReset(email)
+        const result = await sendPasswordReset(email.trim())
         setMessage(result.message ?? 'Reset instructions sent.')
         return
       }
       if (password.length < 8) throw new Error('Password must be at least 8 characters.')
       setPending('email')
-      if (mode === 'signup') {
-        if (firstName.trim().length < 2) throw new Error('Enter your first name.')
-        if (lastName.trim().length < 2) throw new Error('Enter your last name.')
-        if (password !== confirmPassword) throw new Error('Passwords do not match.')
-        if (!acceptedTerms) throw new Error('Accept the terms and privacy policy to continue.')
-        const fullName = `${firstName.trim()} ${lastName.trim()}`
-        const result = await signUpWithEmail(fullName, email.trim(), password)
-        if (result.message) setMessage(result.message)
-      } else {
-        await signInWithEmail(email.trim(), password)
-      }
+      await signInWithEmail(email.trim(), password)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Authentication failed. Please try again.')
     } finally {
@@ -88,13 +79,6 @@ export function LoginPage() {
       setError(caught instanceof Error ? caught.message : 'Social sign-in could not be started.')
       setPending(null)
     }
-  }
-
-  function fillDemo() {
-    setEmail(demoCredentials.email)
-    setPassword(demoCredentials.password)
-    setError('')
-    setMessage('Demo credentials filled. Select “Sign in securely”.')
   }
 
   const busy = pending !== null
@@ -133,27 +117,27 @@ export function LoginPage() {
 
           {mode === 'reset' ? (
             <header className="auth-heading">
-              <button className="auth-back" onClick={() => switchMode('signin')}><ArrowLeft size={17} /> Back to sign in</button>
+              <button className="auth-back" type="button" onClick={() => switchMode('signin')}><ArrowLeft size={17} /> Back to sign in</button>
               <span className="auth-heading__icon"><LockKeyhole size={22} /></span>
               <h2>Reset your password</h2>
               <p>Enter the email attached to your account and we’ll send secure reset instructions.</p>
             </header>
           ) : (
             <header className="auth-heading">
-              <span className="eyebrow">{mode === 'signin' ? 'Welcome back' : 'Create your account'}</span>
-              <h2>{mode === 'signin' ? 'Sign in to Fairshare' : 'Start sharing expenses'}</h2>
-              <p>{mode === 'signin' ? 'Your groups and balances are waiting for you.' : 'Set up your free account in less than a minute.'}</p>
+              <span className="eyebrow">Welcome back</span>
+              <h2>Sign in to Fairshare</h2>
+              <p>Your groups and balances are waiting for you.</p>
             </header>
           )}
 
-          {mode !== 'reset' && (
+          {mode === 'signin' && (
             <>
               <div className="social-login-grid">
-                <button disabled={busy} onClick={() => void social('google')}>
+                <button type="button" disabled={busy} onClick={() => void social('google')}>
                   <span className="google-mark">G</span>
                   <strong>{pending === 'google' ? 'Connecting…' : 'Continue with Google'}</strong>
                 </button>
-                <button disabled={busy} onClick={() => void social('apple')}>
+                <button type="button" disabled={busy} onClick={() => void social('apple')}>
                   <Apple size={19} fill="currentColor" />
                   <strong>{pending === 'apple' ? 'Connecting…' : 'Continue with Apple'}</strong>
                 </button>
@@ -163,43 +147,16 @@ export function LoginPage() {
             </>
           )}
 
-          {!configured && mode === 'signin' && (
-            <aside className="demo-mode-card">
-              <div><span><Sparkles size={14} /> Local demo mode</span><p>Backend sign-in remains available when the API is running.</p></div>
-              <button type="button" onClick={fillDemo}>Use demo login</button>
-            </aside>
-          )}
-
           <form className="auth-form" onSubmit={submit} noValidate>
-            {mode === 'signup' && (
-              <div className="auth-name-grid">
-                <label className="auth-field">
-                  <span>First name</span>
-                  <div><Users size={17} /><input autoComplete="given-name" value={firstName} onChange={(event) => setFirstName(event.target.value)} placeholder="First name" /></div>
-                </label>
-                <label className="auth-field">
-                  <span>Last name</span>
-                  <div><Users size={17} /><input autoComplete="family-name" value={lastName} onChange={(event) => setLastName(event.target.value)} placeholder="Last name" /></div>
-                </label>
-              </div>
-            )}
-
             <label className="auth-field">
               <span>Email address</span>
               <div><Mail size={17} /><input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></div>
             </label>
 
-            {mode !== 'reset' && (
+            {mode === 'signin' && (
               <label className="auth-field">
                 <span>Password</span>
-                <div><LockKeyhole size={17} /><input type={showPassword ? 'text' : 'password'} autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters" /><button type="button" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>
-              </label>
-            )}
-
-            {mode === 'signup' && (
-              <label className="auth-field">
-                <span>Confirm password</span>
-                <div><LockKeyhole size={17} /><input type={showPassword ? 'text' : 'password'} autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Repeat your password" /></div>
+                <div><LockKeyhole size={17} /><input type={showPassword ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters" /><button type="button" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>
               </label>
             )}
 
@@ -209,20 +166,16 @@ export function LoginPage() {
               </div>
             )}
 
-            {mode === 'signup' && (
-              <label className="auth-terms"><input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} /><span><Check size={12} /></span><p>I agree to the <button type="button">Terms of Service</button> and <button type="button">Privacy Policy</button>.</p></label>
-            )}
-
             {error && <p className="auth-alert auth-alert--error" role="alert">{error}</p>}
             {message && <p className="auth-alert auth-alert--success" role="status"><Check size={15} /> {message}</p>}
 
             <button className="auth-submit" type="submit" disabled={busy}>
-              <span>{pending === 'email' || pending === 'reset' ? 'Please wait…' : mode === 'signin' ? 'Sign in securely' : mode === 'signup' ? 'Create my account' : 'Send reset link'}</span>
+              <span>{pending === 'email' || pending === 'reset' ? 'Please wait…' : mode === 'signin' ? 'Sign in securely' : 'Send reset link'}</span>
               <ArrowRight size={18} />
             </button>
           </form>
 
-          {mode !== 'reset' && <p className="auth-switch">{mode === 'signin' ? 'New to Fairshare?' : 'Already have an account?'} <button onClick={() => switchMode(mode === 'signin' ? 'signup' : 'signin')}>{mode === 'signin' ? 'Create an account' : 'Sign in'}</button></p>}
+          {mode === 'signin' && <p className="auth-switch">New to Fairshare? <button type="button" onClick={onCreateAccount}>Create an account</button></p>}
 
           <footer className="auth-footer"><ShieldCheck size={14} /> Your credentials are transmitted securely and never stored by Fairshare.</footer>
         </div>

@@ -15,7 +15,7 @@ interface AuthContextValue {
   configured: boolean
   demoCredentials: { email: string; password: string }
   signInWithEmail: (email: string, password: string) => Promise<AuthActionResult>
-  signUpWithEmail: (name: string, email: string, password: string) => Promise<AuthActionResult>
+  signUpWithEmail: (name: string, email: string, password: string, phone?: string) => Promise<AuthActionResult>
   signInWithSocial: (provider: SocialProvider) => Promise<AuthActionResult>
   sendPasswordReset: (email: string) => Promise<AuthActionResult>
   signOut: () => Promise<void>
@@ -207,11 +207,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     },
 
-    async signUpWithEmail(name, email, password) {
+    async signUpWithEmail(name, email, password, phone) {
       try {
         // Attempt Spring Boot API registration first
         try {
-          const response = await api.auth.register({ name, email, password })
+          const response = await api.auth.register({ name, email, password, phone })
           localStorage.setItem(ACCESS_TOKEN_KEY, response.accessToken)
           localStorage.setItem(REFRESH_TOKEN_KEY, response.refreshToken)
           const profile: AuthProfile = {
@@ -219,6 +219,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             email: response.user.email,
             name: response.user.name,
             avatarUrl: response.user.avatarUrl,
+            phone: response.user.phone ?? phone,
+            onboardingStep: 'done',
             provider: 'email',
             isDemo: false,
           }
@@ -231,7 +233,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               email,
               password,
               options: {
-                data: { full_name: name },
+                data: { full_name: name, phone },
                 emailRedirectTo: getAuthRedirectUrl(),
               },
             })
@@ -244,6 +246,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             id: crypto.randomUUID(),
             email,
             name,
+            phone,
+            onboardingStep: 'done',
             provider: 'email',
             isDemo: true,
           }
