@@ -14,7 +14,15 @@ export const categoryEmoji: Record<string, string> = {
 
 export function findUser(users: User[], id: string): User {
   const user = users.find((entry) => entry.id === id)
-  if (!user) throw new Error(`Unknown user ${id}`)
+  if (!user) {
+    return {
+      id,
+      name: id === 'u-you' ? 'You' : 'Member',
+      email: '',
+      initials: 'FS',
+      color: '#173f3a',
+    }
+  }
   return user
 }
 

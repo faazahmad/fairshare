@@ -21,9 +21,8 @@ import type { SocialProvider } from './types'
 type AuthMode = 'signin' | 'signup' | 'reset'
 
 export function LoginPage() {
-  const { configured, demoCredentials, signInWithEmail, signUpWithEmail, signInWithSocial, sendPasswordReset } = useAuth()
+  const { signInWithEmail, signUpWithEmail, signInWithSocial, sendPasswordReset } = useAuth()
   const [mode, setMode] = useState<AuthMode>('signin')
-  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -59,10 +58,10 @@ export function LoginPage() {
       if (password.length < 8) throw new Error('Password must be at least 8 characters.')
       setPending('email')
       if (mode === 'signup') {
-        if (name.trim().length < 2) throw new Error('Enter your full name.')
         if (password !== confirmPassword) throw new Error('Passwords do not match.')
         if (!acceptedTerms) throw new Error('Accept the terms and privacy policy to continue.')
-        const result = await signUpWithEmail(name.trim(), email.trim(), password)
+        const fallbackName = email.trim().split('@')[0] || 'User'
+        const result = await signUpWithEmail(fallbackName, email.trim(), password)
         if (result.message) setMessage(result.message)
       } else {
         await signInWithEmail(email.trim(), password)
@@ -84,13 +83,6 @@ export function LoginPage() {
       setError(caught instanceof Error ? caught.message : 'Social sign-in could not be started.')
       setPending(null)
     }
-  }
-
-  function fillDemo() {
-    setEmail(demoCredentials.email)
-    setPassword(demoCredentials.password)
-    setError('')
-    setMessage('Demo credentials filled. Select “Sign in securely”.')
   }
 
   const busy = pending !== null
@@ -159,21 +151,7 @@ export function LoginPage() {
             </>
           )}
 
-          {!configured && mode === 'signin' && (
-            <aside className="demo-mode-card">
-              <div><span><Sparkles size={14} /> Local demo mode</span><p>Real OAuth activates when Supabase credentials are added.</p></div>
-              <button onClick={fillDemo}>Use demo login</button>
-            </aside>
-          )}
-
           <form className="auth-form" onSubmit={submit} noValidate>
-            {mode === 'signup' && (
-              <label className="auth-field">
-                <span>Full name</span>
-                <div><Users size={17} /><input autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} placeholder="Your full name" /></div>
-              </label>
-            )}
-
             <label className="auth-field">
               <span>Email address</span>
               <div><Mail size={17} /><input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></div>
