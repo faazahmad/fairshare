@@ -89,19 +89,14 @@ export function OnboardingFlow({ user, onComplete }: OnboardingFlowProps) {
     setPending(true)
     try {
       await api.auth.sendOtp(fullPhone)
-      setMessage(`Code sent to ${fullPhone}. Use 123456 or the code sent to your phone.`)
+      setMessage(`Code sent to ${fullPhone}.`)
       setStep('otp')
       setResendCooldown(30)
       setCanResend(false)
       // Focus first OTP input
       setTimeout(() => otpInputRefs.current[0]?.focus(), 100)
-    } catch {
-      // In dev or offline, still allow proceeding to OTP
-      setMessage(`Verification code dispatched to ${fullPhone}. Enter 123456 to test.`)
-      setStep('otp')
-      setResendCooldown(30)
-      setCanResend(false)
-      setTimeout(() => otpInputRefs.current[0]?.focus(), 100)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'The verification code could not be sent. Please try again.')
     } finally {
       setPending(false)
     }
@@ -147,10 +142,8 @@ export function OnboardingFlow({ user, onComplete }: OnboardingFlowProps) {
       setMessage(`New code sent to ${fullPhone}`)
       setResendCooldown(30)
       setCanResend(false)
-    } catch {
-      setMessage(`New code sent to ${fullPhone}. Use 123456 if local.`)
-      setResendCooldown(30)
-      setCanResend(false)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'A new verification code could not be sent. Please try again.')
     } finally {
       setPending(false)
     }
@@ -168,12 +161,7 @@ export function OnboardingFlow({ user, onComplete }: OnboardingFlowProps) {
 
     setPending(true)
     try {
-      try {
-        await api.auth.verifyOtp(fullPhone, code)
-      } catch (otpErr) {
-        // Allow fallback test code 123456
-        if (code !== '123456') throw otpErr
-      }
+      await api.auth.verifyOtp(fullPhone, code)
 
       const fullName = `${firstName.trim()} ${lastName.trim()}`.trim()
 
@@ -183,6 +171,7 @@ export function OnboardingFlow({ user, onComplete }: OnboardingFlowProps) {
         await api.users.updateOnboarding('done')
       } catch (err) {
         console.warn('Backend updateProfile during onboarding caught', err)
+        throw err
       }
 
       // Update local auth context user

@@ -104,12 +104,16 @@ export default function App() {
   }, [recentGroupIds])
 
   useEffect(() => {
-    if (authUser && syncedAuthId.current !== authUser.id) {
-      syncedAuthId.current = authUser.id
-      localStorage.setItem(LAST_SYNCED_AUTH_KEY, authUser.id)
-      updateCurrentUser({ name: authUser.name, email: authUser.email })
-    }
-  }, [authUser])
+    if (!authUser) return
+    syncedAuthId.current = authUser.id
+    localStorage.setItem(LAST_SYNCED_AUTH_KEY, authUser.id)
+    updateCurrentUser({
+      name: authUser.name,
+      email: authUser.email,
+      phone: authUser.phone,
+      avatarUrl: authUser.avatarUrl,
+    })
+  }, [authUser?.id, authUser?.name, authUser?.email, authUser?.phone, authUser?.avatarUrl])
 
   function navigate(view: AppView) {
     setCurrentView(view)

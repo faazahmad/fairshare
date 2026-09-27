@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
-  Code2,
   Eye,
   EyeOff,
   LockKeyhole,
@@ -23,6 +22,14 @@ type AuthMode = 'signin' | 'reset'
 interface LoginPageProps {
   notice?: string
   onCreateAccount: () => void
+}
+
+function GitHubMark({ size = 19 }: { size?: number }) {
+  return (
+    <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 .7a11.5 11.5 0 0 0-3.64 22.41c.58.11.79-.25.79-.56v-2.23c-3.22.7-3.9-1.37-3.9-1.37-.52-1.34-1.28-1.7-1.28-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.03 1.78 2.7 1.27 3.36.97.1-.75.4-1.27.73-1.56-2.57-.3-5.27-1.3-5.27-5.69 0-1.26.45-2.28 1.18-3.09-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.16 1.18a10.9 10.9 0 0 1 5.74 0c2.19-1.49 3.15-1.18 3.15-1.18.63 1.59.24 2.76.12 3.05.74.81 1.18 1.83 1.18 3.09 0 4.4-2.71 5.39-5.29 5.68.42.36.79 1.07.79 2.16v3.2c0 .31.21.68.8.56A11.5 11.5 0 0 0 12 .7Z" />
+    </svg>
+  )
 }
 
 export function LoginPage({ notice = '', onCreateAccount }: LoginPageProps) {
@@ -69,7 +76,6 @@ export function LoginPage({ notice = '', onCreateAccount }: LoginPageProps) {
   }
 
   async function social(provider: SocialProvider) {
-    if (provider === 'github') return
     setError('')
     setMessage('')
     setPending(provider)
@@ -137,12 +143,12 @@ export function LoginPage({ notice = '', onCreateAccount }: LoginPageProps) {
                   <span className="google-mark">G</span>
                   <strong>{pending === 'google' ? 'Connecting…' : 'Continue with Google'}</strong>
                 </button>
-                <button type="button" disabled={busy} onClick={() => void social('apple')}>
-                  <Apple size={19} fill="currentColor" />
-                  <strong>{pending === 'apple' ? 'Connecting…' : 'Continue with Apple'}</strong>
+                <button type="button" disabled={busy} onClick={() => void social('github')}>
+                  <GitHubMark />
+                  <strong>{pending === 'github' ? 'Connecting…' : 'Continue with GitHub'}</strong>
                 </button>
               </div>
-              <button className="github-login" type="button" disabled aria-disabled="true" title="GitHub sign-in is coming soon"><Code2 size={18} /><span>GitHub sign-in · Coming soon</span></button>
+              <button className="github-login coming-soon-login" type="button" disabled aria-disabled="true" title="Apple sign-in is coming soon"><Apple size={19} fill="currentColor" /><span>Apple sign-in · Coming soon</span></button>
               <div className="auth-divider"><span>or continue with email</span></div>
             </>
           )}

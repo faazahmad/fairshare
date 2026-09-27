@@ -21,7 +21,6 @@
     "@capacitor/app": "^8.1.1",
     "@capacitor/browser": "^8.0.4",
     "@capacitor/core": "^8.5.0",
-    "@supabase/supabase-js": "^2.112.2",
     "lucide-react": "^1.30.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"

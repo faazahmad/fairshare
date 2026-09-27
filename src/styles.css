@@ -1499,14 +1499,29 @@ h1, h2, .brand { font-family: Manrope, 'DM Sans', sans-serif; }
 
 .otp-box:focus {
   border-color: var(--coral);
-  background: #fff;
+  background: var(--surface-raised);
+  color: var(--ink);
   box-shadow: 0 0 0 3px rgb(241 111 79 / 18%);
   outline: none;
 }
 
 .otp-box.is-filled {
   border-color: var(--forest);
-  background: #fff;
+  background: color-mix(in srgb, var(--mint) 35%, var(--surface-raised));
+  color: var(--ink);
+}
+
+[data-theme='dark'] .otp-box,
+[data-theme='dark'] .otp-box:focus,
+[data-theme='dark'] .otp-box.is-filled {
+  border-color: #355048;
+  background: #101513;
+  color: #fff;
+  caret-color: var(--coral);
+}
+
+[data-theme='dark'] .otp-box:focus {
+  border-color: var(--coral);
 }
 
 .otp-resend-row {
@@ -1581,7 +1596,7 @@ h1, h2, .brand { font-family: Manrope, 'DM Sans', sans-serif; }
   gap: 10px;
 }
 
-.github-login:disabled {
+.coming-soon-login:disabled {
   cursor: not-allowed;
   color: #83908c;
   border-color: var(--line);
@@ -1589,7 +1604,7 @@ h1, h2, .brand { font-family: Manrope, 'DM Sans', sans-serif; }
   opacity: 1;
 }
 
-.github-login:disabled:hover {
+.coming-soon-login:disabled:hover {
   color: #83908c;
   border-color: var(--line);
   background: var(--surface-raised);

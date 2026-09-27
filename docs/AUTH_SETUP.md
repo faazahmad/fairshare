@@ -1,100 +1,51 @@
 # Authentication setup
 
-Fairshare supports two authentication modes:
+Fairshare uses a Spring Boot backend API (`fairshare_be`) for authentication and session management:
 
-- **Demo mode** activates automatically when no Supabase environment variables
-  exist. Email login and sign-up work locally with the displayed demo account.
-  Google, Apple, and GitHub deliberately do not simulate a successful identity;
-  they show a configuration error until a real provider is connected.
-- **Production mode** activates when `VITE_SUPABASE_URL` and
-  `VITE_SUPABASE_PUBLISHABLE_KEY` are provided. It uses Supabase Auth for
-  password sessions, OAuth redirects, token refresh, and sign-out.
+- **Spring Boot Backend**: Provides `/api/v1/auth/register`, `/api/v1/auth/login`, `/api/v1/auth/refresh`, and OAuth2 flows (`/oauth/google`, `/oauth/github`). Tokens are stored in JWT format with Redis/in-memory session backing.
+- **Local Demo Mode**: Seamless fallback in the frontend for offline testing and development when credentials match the demo profile or the API is unreachable.
 
-## 1. Add the public project configuration
+## 1. Configure the Frontend
 
-Copy `.env.example` to `.env.local` and fill in the values from the Supabase
-project's Connect dialog:
+Set the backend API base URL in `.env`:
 
 ```dotenv
-VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_REPLACE_ME
-VITE_AUTH_REDIRECT_URL=http://127.0.0.1:4173/
-VITE_NATIVE_AUTH_REDIRECT_URL=com.fairshare.app://auth/callback
+VITE_API_BASE_URL=http://localhost:8080/api/v1
 ```
 
-The publishable key is designed for browser use. Never put a service-role key,
-Google client secret, Apple private key, or GitHub client secret in a `VITE_`
-variable. Those values belong only in provider and Supabase dashboards.
+## 2. Register GitHub OAuth App
 
-Add every development and production callback URL to **Authentication → URL
-Configuration → Redirect URLs** in Supabase. Set the production Site URL before
-launch.
+1. Go to [GitHub Developer Settings → OAuth Apps → New OAuth App](https://github.com/settings/applications/new).
+2. Fill in the fields:
+   - **Application name**: `Fairshare` (or any recognizable name)
+   - **Homepage URL**: `http://localhost:5173` (or production frontend URL)
+   - **Application description**: `Fairshare Expense Sharing App`
+   - **Authorization callback URL**: `http://localhost:8080/api/v1/auth/oauth/github/callback` (or your deployed backend URL)
+3. Click **Register application**.
+4. Generate a new Client Secret.
+5. Copy the **Client ID** and **Client Secret** into your backend `.env` file:
+   ```dotenv
+   GITHUB_CLIENT_ID=your-github-client-id
+   GITHUB_CLIENT_SECRET=your-github-client-secret
+   GITHUB_REDIRECT_URI=http://localhost:8080/api/v1/auth/oauth/github/callback
+   ```
 
-## 2. Enable password authentication
+## 3. Register Google OAuth Client
 
-Email/password sign-in uses `signInWithPassword`, sign-up uses `signUp`, and the
-forgot-password screen uses `resetPasswordForEmail`. Decide whether new users
-must confirm email in the Supabase Email provider settings. Configure branded
-confirmation and reset email templates before launch.
+1. In Google Cloud Console, navigate to **APIs & Services → Credentials**.
+2. Create an **OAuth 2.0 Client ID** (Web application).
+3. Set **Authorized redirect URIs** to:
+   - `http://localhost:8080/api/v1/auth/oauth/google/callback`
+4. Add credentials to backend `.env`:
+   ```dotenv
+   GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+   GOOGLE_CLIENT_SECRET=your-google-client-secret
+   GOOGLE_REDIRECT_URI=http://localhost:8080/api/v1/auth/oauth/google/callback
+   ```
 
-## 3. Enable Google
+## 4. Native Android and iOS handoff
 
-1. Create a Web OAuth client in Google Auth Platform.
-2. Add the deployed Fairshare origin and the local development origin to the
-   authorized JavaScript origins.
-3. Add the Supabase callback URL shown on the Google provider page as an
-   authorized redirect URI.
-4. Add Google's client ID and secret to the Supabase Google provider.
-5. Keep scopes limited to `openid`, email, and profile unless additional access
-   is genuinely required.
-
-Reference: https://supabase.com/docs/guides/auth/social-login/auth-google
-
-## 4. Enable Apple
-
-1. Create an Apple App ID and enable Sign in with Apple.
-2. Create a Services ID for the website and associate it with the App ID.
-3. Register the production domain and Supabase callback URL with the Services ID.
-4. Create an Apple signing key and configure the Apple provider in Supabase.
-5. Schedule rotation of the Apple OAuth secret every six months. Missing a
-   rotation will break web-based Apple sign-in.
-
-Apple supplies a person's name only during initial authorization and the web
-OAuth flow may not return it. Fairshare therefore supports collecting a missing
-name during onboarding.
-
-Reference: https://supabase.com/docs/guides/auth/social-login/auth-apple
-
-## 5. Enable GitHub
-
-Create a GitHub OAuth App, set its authorization callback URL to the callback
-shown by Supabase, and enter its client ID and secret in the Supabase GitHub
-provider.
-
-Reference: https://supabase.com/docs/guides/auth/social-login
-
-## 6. Native Android and iOS handoff
-
-The installed app uses Capacitor Browser to open the provider and Capacitor App
-to receive `com.fairshare.app://auth/callback`. The callback handler validates the
-returned token pair, gives it to Supabase, closes the authorization browser, and
-lets the shared auth-state listener enter the app.
-
-Add `com.fairshare.app://**` to **Authentication → URL Configuration → Redirect
-URLs** in Supabase. After generating the native projects, register the same
-scheme on both platforms:
-
-- Android: add an `android.intent.action.VIEW` intent filter for the
-  `com.fairshare.app` scheme inside the main activity.
-- iOS: add `com.fairshare.app` to `CFBundleURLSchemes` in `Info.plist`.
-
-Run `pnpm mobile:sync` after installing or changing Capacitor plugins. A final
-production release should move to a verified HTTPS app/universal link when the
-public Fairshare domain is approved.
-
-For the best iPhone experience, the final native build should use Apple's native
-Authentication Services capability and pass its ID token to Supabase. The web
-OAuth button remains a compatible fallback.
+The installed app uses Capacitor Browser to open the backend OAuth endpoint and receives deep-links via `com.fairshare.app://auth/callback`.
 
 ## Security checklist
 

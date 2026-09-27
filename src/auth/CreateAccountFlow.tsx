@@ -136,14 +136,14 @@ export function CreateAccountFlow({ onBack, onComplete }: CreateAccountFlowProps
     try {
       await api.auth.sendOtp(fullPhone)
       setMessage(`Verification code sent to ${fullPhone}.`)
-    } catch {
-      setMessage(`Development mode: use 123456 to verify ${fullPhone}.`)
-    } finally {
-      setPending(false)
       setStep('otp')
       setResendCooldown(30)
       setCanResend(false)
       window.setTimeout(() => otpInputRefs.current[0]?.focus(), 100)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'The verification code could not be sent. Please try again.')
+    } finally {
+      setPending(false)
     }
   }
 
@@ -174,12 +174,12 @@ export function CreateAccountFlow({ onBack, onComplete }: CreateAccountFlowProps
     try {
       await api.auth.sendOtp(fullPhone)
       setMessage(`A new code was sent to ${fullPhone}.`)
-    } catch {
-      setMessage('Development mode: use 123456 to continue.')
-    } finally {
-      setPending(false)
       setResendCooldown(30)
       setCanResend(false)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'A new verification code could not be sent. Please try again.')
+    } finally {
+      setPending(false)
     }
   }
 
@@ -194,11 +194,7 @@ export function CreateAccountFlow({ onBack, onComplete }: CreateAccountFlowProps
 
     setPending(true)
     try {
-      try {
-        await api.auth.verifyOtp(fullPhone, code)
-      } catch (caught) {
-        if (code !== '123456') throw caught
-      }
+      await api.auth.verifyOtp(fullPhone, code)
 
       const fullName = `${firstName.trim()} ${lastName.trim()}`
       const result = await signUpWithEmail(fullName, email.trim(), password, fullPhone)

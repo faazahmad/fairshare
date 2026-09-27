@@ -33,15 +33,12 @@ All backend URLs are driven by environment variables — no localhost is hard-co
 
    ```dotenv
    VITE_API_BASE_URL=https://api.yourdomain.com/api/v1
-   VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
-   VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_REPLACE_ME
    ```
 
 2. Configure CORS origins on the backend so the web app and its
    WebSocket channel can reach it from the web AND from the installed Android/iOS builds.
-3. The native auth redirect uses `com.fairshare.app://auth/callback` — add
-   `com.fairshare.app://**` to your Supabase Auth redirect allow list, and ensure your
-   Google OAuth client accepts that callback.
+3. The native auth redirect uses `com.fairshare.app://auth/callback` — ensure your
+   OAuth clients (Google, GitHub) accept that callback.
 
 > ⚠️ Vite bakes `.env` values in **at build time** (`pnpm build`), so set
 > `VITE_API_BASE_URL` before every mobile build.
