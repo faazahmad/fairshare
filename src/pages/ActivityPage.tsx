@@ -1,4 +1,4 @@
-import { Activity, BellRing, Calculator, Filter, Receipt, Search } from 'lucide-react'
+import { Activity, BellRing, Calculator, Filter, Search } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import type { Expense, LedgerState, Payment } from '../domain/types'
 import { ExpenseRow, PaymentRow } from '../components/LedgerRows'

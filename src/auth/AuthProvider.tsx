@@ -13,6 +13,7 @@ interface AuthContextValue {
   user: AuthProfile | null
   loading: boolean
   configured: boolean
+  demoCredentials: { email: string; password: string }
   signInWithEmail: (email: string, password: string) => Promise<AuthActionResult>
   signUpWithEmail: (name: string, email: string, password: string) => Promise<AuthActionResult>
   signInWithSocial: (provider: SocialProvider) => Promise<AuthActionResult>
@@ -23,21 +24,19 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-function parseJwtPayload(token: string): { sub?: string; email?: string; role?: string; exp?: number; iat?: number } | null {
+function loadDemoSession(): AuthProfile | null {
   try {
-    const base64Url = token.split('.')[1]
-    if (!base64Url) return null
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join(''),
-    )
-    return JSON.parse(jsonPayload)
+    const stored = localStorage.getItem(DEMO_SESSION_KEY)
+    if (!stored) return null
+    return JSON.parse(stored) as AuthProfile
   } catch {
     return null
   }
+}
+
+function saveDemoSession(profile: AuthProfile | null) {
+  if (profile) localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(profile))
+  else localStorage.removeItem(DEMO_SESSION_KEY)
 }
 
 function mapSupabaseUser(user: SupabaseUser): AuthProfile {
@@ -143,7 +142,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void initSession()
 
     return () => {
-      clearTimeout(fallbackTimer)
       mounted = false
     }
   }, [])
@@ -227,7 +225,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           saveDemoSession(null)
           setUser(profile)
           return { message: 'Account created successfully.' }
-        } catch (apiErr) {
+        } catch {
           if (supabase) {
             const { data, error } = await supabase.auth.signUp({
               email,
@@ -332,7 +330,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       saveDemoSession(null)
       setUser(null)
     },
-  }), [user])
+
+    updateUser(updates) {
+      setUser((current) => {
+        if (!current) return current
+        const updated = { ...current, ...updates }
+        if (updated.isDemo) saveDemoSession(updated)
+        return updated
+      })
+    },
+  }), [loading, user])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

@@ -21,8 +21,10 @@ import type { SocialProvider } from './types'
 type AuthMode = 'signin' | 'signup' | 'reset'
 
 export function LoginPage() {
-  const { signInWithEmail, signUpWithEmail, signInWithSocial, sendPasswordReset } = useAuth()
+  const { configured, demoCredentials, signInWithEmail, signUpWithEmail, signInWithSocial, sendPasswordReset } = useAuth()
   const [mode, setMode] = useState<AuthMode>('signin')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -58,10 +60,12 @@ export function LoginPage() {
       if (password.length < 8) throw new Error('Password must be at least 8 characters.')
       setPending('email')
       if (mode === 'signup') {
+        if (firstName.trim().length < 2) throw new Error('Enter your first name.')
+        if (lastName.trim().length < 2) throw new Error('Enter your last name.')
         if (password !== confirmPassword) throw new Error('Passwords do not match.')
         if (!acceptedTerms) throw new Error('Accept the terms and privacy policy to continue.')
-        const fallbackName = email.trim().split('@')[0] || 'User'
-        const result = await signUpWithEmail(fallbackName, email.trim(), password)
+        const fullName = `${firstName.trim()} ${lastName.trim()}`
+        const result = await signUpWithEmail(fullName, email.trim(), password)
         if (result.message) setMessage(result.message)
       } else {
         await signInWithEmail(email.trim(), password)
@@ -74,6 +78,7 @@ export function LoginPage() {
   }
 
   async function social(provider: SocialProvider) {
+    if (provider === 'github') return
     setError('')
     setMessage('')
     setPending(provider)
@@ -83,6 +88,13 @@ export function LoginPage() {
       setError(caught instanceof Error ? caught.message : 'Social sign-in could not be started.')
       setPending(null)
     }
+  }
+
+  function fillDemo() {
+    setEmail(demoCredentials.email)
+    setPassword(demoCredentials.password)
+    setError('')
+    setMessage('Demo credentials filled. Select “Sign in securely”.')
   }
 
   const busy = pending !== null
@@ -146,12 +158,32 @@ export function LoginPage() {
                   <strong>{pending === 'apple' ? 'Connecting…' : 'Continue with Apple'}</strong>
                 </button>
               </div>
-              <button className="github-login" disabled={busy} onClick={() => void social('github')}><Code2 size={18} /><span>{pending === 'github' ? 'Connecting to GitHub…' : 'Continue with GitHub'}</span></button>
+              <button className="github-login" type="button" disabled aria-disabled="true" title="GitHub sign-in is coming soon"><Code2 size={18} /><span>GitHub sign-in · Coming soon</span></button>
               <div className="auth-divider"><span>or continue with email</span></div>
             </>
           )}
 
+          {!configured && mode === 'signin' && (
+            <aside className="demo-mode-card">
+              <div><span><Sparkles size={14} /> Local demo mode</span><p>Backend sign-in remains available when the API is running.</p></div>
+              <button type="button" onClick={fillDemo}>Use demo login</button>
+            </aside>
+          )}
+
           <form className="auth-form" onSubmit={submit} noValidate>
+            {mode === 'signup' && (
+              <div className="auth-name-grid">
+                <label className="auth-field">
+                  <span>First name</span>
+                  <div><Users size={17} /><input autoComplete="given-name" value={firstName} onChange={(event) => setFirstName(event.target.value)} placeholder="First name" /></div>
+                </label>
+                <label className="auth-field">
+                  <span>Last name</span>
+                  <div><Users size={17} /><input autoComplete="family-name" value={lastName} onChange={(event) => setLastName(event.target.value)} placeholder="Last name" /></div>
+                </label>
+              </div>
+            )}
+
             <label className="auth-field">
               <span>Email address</span>
               <div><Mail size={17} /><input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></div>
