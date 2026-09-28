@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
-  Code2,
   Eye,
   EyeOff,
   LockKeyhole,
@@ -18,19 +17,31 @@ import {
 import { useAuth } from './AuthProvider'
 import type { SocialProvider } from './types'
 
-type AuthMode = 'signin' | 'signup' | 'reset'
+type AuthMode = 'signin' | 'reset'
 
-export function LoginPage() {
-  const { authError, clearAuthError, signInWithEmail, signUpWithEmail, signInWithSocial, sendPasswordReset } = useAuth()
+interface LoginPageProps {
+  nativeExperience?: boolean
+  notice?: string
+  onCreateAccount: () => void
+}
+
+function GitHubMark({ size = 19 }: { size?: number }) {
+  return (
+    <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 .7a11.5 11.5 0 0 0-3.64 22.41c.58.11.79-.25.79-.56v-2.23c-3.22.7-3.9-1.37-3.9-1.37-.52-1.34-1.28-1.7-1.28-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.03 1.78 2.7 1.27 3.36.97.1-.75.4-1.27.73-1.56-2.57-.3-5.27-1.3-5.27-5.69 0-1.26.45-2.28 1.18-3.09-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.16 1.18a10.9 10.9 0 0 1 5.74 0c2.19-1.49 3.15-1.18 3.15-1.18.63 1.59.24 2.76.12 3.05.74.81 1.18 1.83 1.18 3.09 0 4.4-2.71 5.39-5.29 5.68.42.36.79 1.07.79 2.16v3.2c0 .31.21.68.8.56A11.5 11.5 0 0 0 12 .7Z" />
+    </svg>
+  )
+}
+
+export function LoginPage({ nativeExperience = false, notice = '', onCreateAccount }: LoginPageProps) {
+  const { authError, clearAuthError, signInWithEmail, signInWithSocial, sendPasswordReset } = useAuth()
   const [mode, setMode] = useState<AuthMode>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [pending, setPending] = useState<string | null>(null)
   const [error, setError] = useState('')
-  const [message, setMessage] = useState('')
+  const [message, setMessage] = useState(notice)
 
   useEffect(() => {
     if (authError) setError(authError)
@@ -57,21 +68,13 @@ export function LoginPage() {
       validateEmail()
       if (mode === 'reset') {
         setPending('reset')
-        const result = await sendPasswordReset(email)
+        const result = await sendPasswordReset(email.trim())
         setMessage(result.message ?? 'Reset instructions sent.')
         return
       }
       if (password.length < 8) throw new Error('Password must be at least 8 characters.')
       setPending('email')
-      if (mode === 'signup') {
-        if (password !== confirmPassword) throw new Error('Passwords do not match.')
-        if (!acceptedTerms) throw new Error('Accept the terms and privacy policy to continue.')
-        const fallbackName = email.trim().split('@')[0] || 'User'
-        const result = await signUpWithEmail(fallbackName, email.trim(), password)
-        if (result.message) setMessage(result.message)
-      } else {
-        await signInWithEmail(email.trim(), password)
-      }
+      await signInWithEmail(email.trim(), password)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Authentication failed. Please try again.')
     } finally {
@@ -95,7 +98,7 @@ export function LoginPage() {
   const busy = pending !== null
 
   return (
-    <main className="auth-page">
+    <main className={`auth-page${nativeExperience ? ' auth-page--native' : ''}`}>
       <section className="auth-story" aria-label="Fairshare product preview">
         <button className="auth-brand" aria-label="Fairshare">
           <span><WalletCards size={24} /></span>
@@ -128,32 +131,32 @@ export function LoginPage() {
 
           {mode === 'reset' ? (
             <header className="auth-heading">
-              <button className="auth-back" onClick={() => switchMode('signin')}><ArrowLeft size={17} /> Back to sign in</button>
+              <button className="auth-back" type="button" onClick={() => switchMode('signin')}><ArrowLeft size={17} /> Back to sign in</button>
               <span className="auth-heading__icon"><LockKeyhole size={22} /></span>
               <h2>Reset your password</h2>
               <p>Enter the email attached to your account and we’ll send secure reset instructions.</p>
             </header>
           ) : (
             <header className="auth-heading">
-              <span className="eyebrow">{mode === 'signin' ? 'Welcome back' : 'Create your account'}</span>
-              <h2>{mode === 'signin' ? 'Sign in to Fairshare' : 'Start sharing expenses'}</h2>
-              <p>{mode === 'signin' ? 'Your groups and balances are waiting for you.' : 'Set up your free account in less than a minute.'}</p>
+              <span className="eyebrow">Welcome back</span>
+              <h2>Sign in to Fairshare</h2>
+              <p>Your groups and balances are waiting for you.</p>
             </header>
           )}
 
-          {mode !== 'reset' && (
+          {mode === 'signin' && (
             <>
               <div className="social-login-grid">
-                <button disabled={busy} onClick={() => void social('google')}>
+                <button type="button" disabled={busy} onClick={() => void social('google')}>
                   <span className="google-mark">G</span>
                   <strong>{pending === 'google' ? 'Connecting…' : 'Continue with Google'}</strong>
                 </button>
-                <button disabled={busy} onClick={() => void social('apple')}>
-                  <Apple size={19} fill="currentColor" />
-                  <strong>{pending === 'apple' ? 'Connecting…' : 'Continue with Apple'}</strong>
+                <button type="button" disabled={busy} onClick={() => void social('github')}>
+                  <GitHubMark />
+                  <strong>{pending === 'github' ? 'Connecting…' : 'Continue with GitHub'}</strong>
                 </button>
               </div>
-              <button className="github-login" disabled={busy} onClick={() => void social('github')}><Code2 size={18} /><span>{pending === 'github' ? 'Connecting to GitHub…' : 'Continue with GitHub'}</span></button>
+              <button className="github-login coming-soon-login" type="button" disabled aria-disabled="true" title="Apple sign-in is coming soon"><Apple size={19} fill="currentColor" /><span>Apple sign-in · Coming soon</span></button>
               <div className="auth-divider"><span>or continue with email</span></div>
             </>
           )}
@@ -164,17 +167,10 @@ export function LoginPage() {
               <div><Mail size={17} /><input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></div>
             </label>
 
-            {mode !== 'reset' && (
+            {mode === 'signin' && (
               <label className="auth-field">
                 <span>Password</span>
-                <div><LockKeyhole size={17} /><input type={showPassword ? 'text' : 'password'} autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters" /><button type="button" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>
-              </label>
-            )}
-
-            {mode === 'signup' && (
-              <label className="auth-field">
-                <span>Confirm password</span>
-                <div><LockKeyhole size={17} /><input type={showPassword ? 'text' : 'password'} autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Repeat your password" /></div>
+                <div><LockKeyhole size={17} /><input type={showPassword ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters" /><button type="button" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>
               </label>
             )}
 
@@ -184,20 +180,16 @@ export function LoginPage() {
               </div>
             )}
 
-            {mode === 'signup' && (
-              <label className="auth-terms"><input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} /><span><Check size={12} /></span><p>I agree to the <button type="button">Terms of Service</button> and <button type="button">Privacy Policy</button>.</p></label>
-            )}
-
             {error && <p className="auth-alert auth-alert--error" role="alert">{error}</p>}
             {message && <p className="auth-alert auth-alert--success" role="status"><Check size={15} /> {message}</p>}
 
             <button className="auth-submit" type="submit" disabled={busy}>
-              <span>{pending === 'email' || pending === 'reset' ? 'Please wait…' : mode === 'signin' ? 'Sign in securely' : mode === 'signup' ? 'Create my account' : 'Send reset link'}</span>
+              <span>{pending === 'email' || pending === 'reset' ? 'Please wait…' : mode === 'signin' ? 'Sign in securely' : 'Send reset link'}</span>
               <ArrowRight size={18} />
             </button>
           </form>
 
-          {mode !== 'reset' && <p className="auth-switch">{mode === 'signin' ? 'New to Fairshare?' : 'Already have an account?'} <button onClick={() => switchMode(mode === 'signin' ? 'signup' : 'signin')}>{mode === 'signin' ? 'Create an account' : 'Sign in'}</button></p>}
+          {mode === 'signin' && <p className="auth-switch">New to Fairshare? <button type="button" onClick={onCreateAccount}>Create an account</button></p>}
 
           <footer className="auth-footer"><ShieldCheck size={14} /> Your credentials are transmitted securely and never stored by Fairshare.</footer>
         </div>

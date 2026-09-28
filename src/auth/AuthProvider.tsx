@@ -50,7 +50,7 @@ function callbackParameters(): URLSearchParams {
 }
 
 function clearCallbackUrl(): void {
-  window.history.replaceState({}, document.title, window.location.pathname)
+  window.history.replaceState({}, document.title, '/')
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs = AUTH_CHECK_TIMEOUT_MS): Promise<T> {

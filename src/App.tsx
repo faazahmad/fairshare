@@ -31,7 +31,11 @@ const SmartAssistantModal = lazy(() => import('./components/SmartAssistantModal'
 const LAST_SYNCED_AUTH_KEY = 'fairshare-last-synced-auth-id'
 const RECENT_GROUPS_KEY = 'fairshare-recent-groups-v1'
 
-export default function App() {
+interface AppProps {
+  nativeExperience?: boolean
+}
+
+export default function App({ nativeExperience = false }: AppProps) {
   const {
     state,
     addExpense,
@@ -104,12 +108,16 @@ export default function App() {
   }, [recentGroupIds])
 
   useEffect(() => {
-    if (authUser && syncedAuthId.current !== authUser.id) {
-      syncedAuthId.current = authUser.id
-      localStorage.setItem(LAST_SYNCED_AUTH_KEY, authUser.id)
-      updateCurrentUser({ name: authUser.name, email: authUser.email })
-    }
-  }, [authUser])
+    if (!authUser) return
+    syncedAuthId.current = authUser.id
+    localStorage.setItem(LAST_SYNCED_AUTH_KEY, authUser.id)
+    updateCurrentUser({
+      name: authUser.name,
+      email: authUser.email,
+      phone: authUser.phone,
+      avatarUrl: authUser.avatarUrl,
+    })
+  }, [authUser?.id, authUser?.name, authUser?.email, authUser?.phone, authUser?.avatarUrl])
 
   function navigate(view: AppView) {
     setCurrentView(view)
@@ -229,7 +237,7 @@ export default function App() {
   const activeGroup = group || defaultGroup
 
   return (
-    <div className={`app-shell ${currentView === 'expenses' ? '' : 'app-shell--wide'}`}>
+    <div className={`app-shell ${currentView === 'expenses' ? '' : 'app-shell--wide'}${nativeExperience ? ' app-shell--native' : ''}`}>
       <AppNavigation state={state} currentView={currentView} selectedGroupId={activeGroup.id} recentGroupIds={recentGroupIds} onNavigate={navigate} onSelectGroup={openGroup} onCreateGroup={openCreateGroup} />
 
       <Suspense fallback={<div className="page-content" style={{ minHeight: '60vh', display: 'grid', placeItems: 'center', color: 'var(--muted)' }}>Loading...</div>}>

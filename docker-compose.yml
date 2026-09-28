@@ -21,13 +21,8 @@ services:
   redis:
     image: redis:7-alpine
     container_name: fairshare-redis
-<<<<<<< HEAD
     expose:
       - "6379"
-=======
-    ports:
-      - "6379:6379"
->>>>>>> 86d778e (task : made changes in ui)
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
