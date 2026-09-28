@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Apple,
   ArrowLeft,
@@ -21,7 +21,7 @@ import type { SocialProvider } from './types'
 type AuthMode = 'signin' | 'signup' | 'reset'
 
 export function LoginPage() {
-  const { signInWithEmail, signUpWithEmail, signInWithSocial, sendPasswordReset } = useAuth()
+  const { authError, clearAuthError, signInWithEmail, signUpWithEmail, signInWithSocial, sendPasswordReset } = useAuth()
   const [mode, setMode] = useState<AuthMode>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -32,7 +32,12 @@ export function LoginPage() {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
 
+  useEffect(() => {
+    if (authError) setError(authError)
+  }, [authError])
+
   function switchMode(nextMode: AuthMode) {
+    clearAuthError()
     setMode(nextMode)
     setError('')
     setMessage('')
@@ -45,6 +50,7 @@ export function LoginPage() {
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
+    clearAuthError()
     setError('')
     setMessage('')
     try {
@@ -74,6 +80,7 @@ export function LoginPage() {
   }
 
   async function social(provider: SocialProvider) {
+    clearAuthError()
     setError('')
     setMessage('')
     setPending(provider)

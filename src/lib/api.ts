@@ -97,6 +97,18 @@ async function attemptRefreshToken(refreshToken: string): Promise<boolean> {
 
 export const api = {
   auth: {
+    sendOtp: (phone: string) =>
+      request<{ phone: string; message: string }>('/auth/otp/send', {
+        method: 'POST',
+        body: JSON.stringify({ phone }),
+      }),
+
+    verifyOtp: (phone: string, code: string) =>
+      request<{ verified: boolean }>('/auth/otp/verify', {
+        method: 'POST',
+        body: JSON.stringify({ phone, code }),
+      }),
+
     register: (payload: { name: string; email: string; password: string; phone?: string; defaultCurrency?: string }) =>
       request<{ accessToken: string; refreshToken: string; user: User }>('/auth/register', {
         method: 'POST',
@@ -157,6 +169,7 @@ export const api = {
         body: JSON.stringify(group),
       }),
     get: (id: string) => request<Group>(`/groups/${id}`),
+    getMembers: (groupId: string) => request<User[]>(`/groups/${groupId}/members`),
     addMember: (groupId: string, member: { userId?: string; msisdn?: string }) =>
       request<Group>(`/groups/${groupId}/members`, {
         method: 'POST',

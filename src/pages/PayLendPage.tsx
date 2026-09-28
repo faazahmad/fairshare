@@ -1,7 +1,5 @@
-<<<<<<< HEAD
 import { useEffect, useState, type ReactNode } from 'react'
 import {
-  AlertTriangle,
   Calendar,
   Check,
   CheckCircle,
@@ -11,32 +9,13 @@ import {
   Phone,
   Plus,
   Receipt,
-  Search,
-  Sparkles,
-  Trash2,
   UserPlus,
   Users,
 } from 'lucide-react'
-import type { Contact, MoneyRequest, UpcomingBill, User } from '../domain/types'
+import type { Contact, MoneyRequest, UpcomingBill } from '../domain/types'
 import { api } from '../lib/api'
 import { formatMoney } from '../domain/money'
 import { recordRum } from '../lib/rum'
-=======
-import { useMemo, useState, type ReactNode } from 'react'
-import { ArrowRight, BellRing, Check, CreditCard, HandCoins, Landmark, Mic, QrCode, ScanLine, ShieldCheck, Sparkles, WalletCards, Zap } from 'lucide-react'
-import type { LedgerState } from '../domain/types'
-import { currencySymbol, formatMoney, parseMoney } from '../domain/money'
-import { findUser } from '../lib/ledger'
-
-type PaymentMethod = 'wallet' | 'upi' | 'debit' | 'credit'
-
-const methods = [
-  { id: 'wallet' as const, icon: WalletCards, title: 'Fairshare wallet', copy: 'Use your built-in wallet balance', badge: 'Built in' },
-  { id: 'upi' as const, icon: QrCode, title: 'UPI', copy: 'Choose a UPI app or scan a code', badge: 'Instant' },
-  { id: 'debit' as const, icon: Landmark, title: 'Debit card', copy: 'Pay from a verified bank card', badge: 'Card' },
-  { id: 'credit' as const, icon: CreditCard, title: 'Credit card', copy: 'Pay using an eligible credit card', badge: 'Card' },
-]
->>>>>>> 7ecd15b (Add payment sharing and mobile test builds)
 
 interface PayLendPageProps {
   topbar: ReactNode
@@ -222,7 +201,6 @@ export function PayLendPage({ topbar }: PayLendPageProps) {
     window.open(`https://wa.me/${cleanPhone}?text=${text}`, '_blank')
   }
 
-<<<<<<< HEAD
   return (
     <main className="main-panel page-panel" id="top">
       {topbar}
@@ -252,6 +230,8 @@ export function PayLendPage({ topbar }: PayLendPageProps) {
             </button>
           </div>
         </div>
+
+        {loading && <p className="eyebrow" role="status" style={{ marginTop: '1rem' }}>Refreshing your money hub…</p>}
 
         {/* TAB 1: UPCOMING BILLS */}
         {activeTab === 'bills' && (
@@ -288,6 +268,16 @@ export function PayLendPage({ topbar }: PayLendPageProps) {
                       value={billAmount}
                       onChange={(e) => setBillAmount(e.target.value)}
                       required
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.85rem', display: 'block', marginBottom: 4 }}>Recipient ID or phone</label>
+                    <input
+                      type="text"
+                      className="text-input"
+                      placeholder="Friend ID or +91 number"
+                      value={requestRecipient}
+                      onChange={(e) => setRequestRecipient(e.target.value)}
                     />
                   </div>
                   <div>
@@ -579,71 +569,5 @@ export function PayLendPage({ topbar }: PayLendPageProps) {
         )}
       </div>
     </main>
-=======
-export function PayLendPage({ state, topbar }: { state: LedgerState; topbar: ReactNode }) {
-  const currentUser = findUser(state.users, state.currentUserId)
-  const currency = currentUser.defaultCurrency ?? 'INR'
-  const recipients = state.users.filter((user) => user.id !== state.currentUserId)
-  const [joined, setJoined] = useState(false)
-  const [method, setMethod] = useState<PaymentMethod>('wallet')
-  const [recipientId, setRecipientId] = useState(recipients[0]?.id ?? '')
-  const [amount, setAmount] = useState('1250')
-  const [previewReady, setPreviewReady] = useState(false)
-  const [error, setError] = useState('')
-  const selectedMethod = methods.find((entry) => entry.id === method) ?? methods[0]!
-  const recipient = recipients.find((entry) => entry.id === recipientId) ?? recipients[0]
-  const previewAmount = useMemo(() => parseMoney(amount), [amount])
-
-  function preparePreview(event: React.FormEvent) {
-    event.preventDefault()
-    if (!recipient) { setError('Choose a person to pay.'); setPreviewReady(false); return }
-    if (!previewAmount) { setError('Enter a valid amount with no more than two decimals.'); setPreviewReady(false); return }
-    setError('')
-    setPreviewReady(true)
-  }
-
-  return (
-    <main className="main-panel page-panel" id="top">
-      {topbar}
-      <div className="content page-content">
-        <section className="page-hero">
-          <div>
-            <span className="page-hero__icon"><HandCoins size={24} /></span>
-            <div>
-              <span className="eyebrow">Money & Commitments Hub</span>
-              <h1>Upcoming Bills & Money Requests</h1>
-              <p>Track due bills with automated recurring reminders, request money with expiration deadlines, and connect with contacts.</p>
-            </div>
-          </div>
-        </section>
-
-        {/* Tab Controls */}
-        <div className="activity-toolbar" style={{ marginTop: '1rem' }}>
-          <div className="segmented-control compact-tabs">
-            <button className={activeTab === 'bills' ? 'is-active' : ''} onClick={() => setActiveTab('bills')}>
-              <Calendar size={15} style={{ marginRight: 6 }} /> Upcoming Bills ({bills.filter((b) => b.status !== 'paid').length})
-            </button>
-            <button className={activeTab === 'requests' ? 'is-active' : ''} onClick={() => setActiveTab('requests')}>
-              <Clock size={15} style={{ marginRight: 6 }} /> Money Requests ({requests.filter((r) => r.status === 'open').length})
-            </button>
-            <button className={activeTab === 'contacts' ? 'is-active' : ''} onClick={() => setActiveTab('contacts')}>
-              <Users size={15} style={{ marginRight: 6 }} /> Phone Contacts ({contacts.length})
-            </button>
-          </div>
-        </div>
-        <form className="payment-preview-form" onSubmit={preparePreview}>
-          <label className="field"><span>Pay to</span><select value={recipientId} onChange={(event) => { setRecipientId(event.target.value); setPreviewReady(false) }}>{recipients.map((user) => <option value={user.id} key={user.id}>{user.name}</option>)}</select></label>
-          <label className="field"><span>Amount</span><span className="input-with-icon"><strong>{currencySymbol(currency)}</strong><input inputMode="decimal" value={amount} onChange={(event) => { setAmount(event.target.value); setPreviewReady(false) }} placeholder="0.00" /></span></label>
-          <button className="button button--primary" type="submit">Prepare secure preview <ArrowRight size={16} /></button>
-        </form>
-        {error && <p className="form-error" role="alert">{error}</p>}
-        {previewReady && previewAmount && recipient && <div className="payment-preview-result" role="status"><span><Check size={18} /></span><div><strong>{formatMoney(previewAmount, currency)} to {recipient.name} via {selectedMethod.title}</strong><p>The review flow is ready. No money has moved; live confirmation will activate only after a regulated provider is connected.</p></div></div>}
-      </section>
-
-      <section className="pay-feature-section"><div className="section-heading"><div><h2>What we’re building</h2><p>Each flow will create a matching, auditable ledger record.</p></div></div><div className="pay-feature-grid">{features.map(({ icon: Icon, title, copy, badge }) => <article key={title}><header><span><Icon size={21} /></span><i>{badge}</i></header><h3>{title}</h3><p>{copy}</p><button disabled>Preview soon <ArrowRight size={14} /></button></article>)}</div></section>
-      <section className="pay-safety"><ShieldCheck size={25} /><div><strong>Money movement needs production infrastructure</strong><p>Before launch we’ll add a regulated payment partner, verified identities, consent screens, signed webhooks, fraud controls, refunds, and store-compliant disclosures. Fairshare will never mark a transfer complete until the provider confirms it.</p></div></section>
-      <section className="pay-roadmap"><h2>Preview roadmap</h2><div><article><span>01</span><strong>Record</strong><p>One-tap lending and voice-created drafts.</p></article><article><span>02</span><strong>Connect</strong><p>Wallet, UPI, debit, and credit payment providers.</p></article><article><span>03</span><strong>Confirm</strong><p>Automatic settlement after verified payment.</p></article><article><span>04</span><strong>Expand</strong><p>Receipt intelligence and recurring transfers.</p></article></div></section>
-    </div></main>
->>>>>>> 7ecd15b (Add payment sharing and mobile test builds)
   )
 }

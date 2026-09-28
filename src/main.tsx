@@ -2,13 +2,16 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { AuthProvider } from './auth/AuthProvider'
 import { AppGate } from './auth/AppGate'
+import { AppErrorBoundary } from './components/AppErrorBoundary'
 import './styles.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AuthProvider>
-      <AppGate />
-    </AuthProvider>
+    <AppErrorBoundary>
+      <AuthProvider>
+        <AppGate />
+      </AuthProvider>
+    </AppErrorBoundary>
   </StrictMode>,
 )
 

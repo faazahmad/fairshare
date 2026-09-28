@@ -710,6 +710,15 @@ body {
 .auth-splash strong { font-family: Manrope, sans-serif; font-size: 21px; }
 .auth-splash i { width: 44px; height: 3px; overflow: hidden; border-radius: 999px; background: #dfe5df; }
 .auth-splash i::after { content: ''; display: block; width: 45%; height: 100%; border-radius: inherit; background: var(--forest-2); animation: auth-loading 1s ease-in-out infinite alternate; }
+.app-error { display: grid; min-height: 100vh; padding: 28px; place-items: center; color: var(--ink); background: radial-gradient(circle at 15% 10%, color-mix(in srgb, var(--coral) 15%, transparent), transparent 30%), var(--canvas); }
+.app-error__brand { position: fixed; top: 24px; left: 28px; display: flex; align-items: center; gap: 10px; color: var(--forest); }
+.app-error__brand svg { padding: 8px; width: 40px; height: 40px; border-radius: 12px; color: #fff; background: var(--coral); }
+.app-error__brand strong { font: 800 20px/1 Manrope, sans-serif; }
+.app-error__card { width: min(520px, 100%); padding: clamp(28px, 6vw, 48px); border: 1px solid var(--border); border-radius: 24px; text-align: center; background: var(--surface); box-shadow: var(--shadow); }
+.app-error__icon { display: grid; width: 54px; height: 54px; margin: 0 auto 20px; place-items: center; border-radius: 16px; color: var(--coral); background: color-mix(in srgb, var(--coral) 12%, var(--surface)); }
+.app-error__card h1 { max-width: 420px; margin: 8px auto 12px; font: 800 clamp(25px, 5vw, 36px)/1.15 Manrope, sans-serif; }
+.app-error__card > p:not(.eyebrow) { max-width: 410px; margin: 0 auto 24px; color: var(--muted); line-height: 1.65; }
+.app-error__card .button { margin: 0 auto; }
 .settings-session-card > .button { margin-top: 15px; color: #a4483d; border-color: #efd4cf; }
 
 @keyframes auth-loading { to { transform: translateX(125%); } }

@@ -1,319 +1,206 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import type { User as SupabaseUser } from '@supabase/supabase-js'
-import { getAuthRedirectUrl, isSupabaseConfigured, supabase } from './supabase'
 import type { AuthActionResult, AuthProfile, SocialProvider } from './types'
 import { api, ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY } from '../lib/api'
 
-const DEMO_SESSION_KEY = 'fairshare-auth-demo-v1'
-const DEMO_EMAIL = 'demo@fairshare.app'
-const DEMO_PASSWORD = 'Fairshare123'
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1').replace(/\/$/, '')
+const OAUTH_PROVIDER_KEY = 'fairshare-oauth-provider'
+const AUTH_CHECK_TIMEOUT_MS = 10_000
 
 interface AuthContextValue {
   user: AuthProfile | null
   loading: boolean
-  configured: boolean
+  authError: string | null
   signInWithEmail: (email: string, password: string) => Promise<AuthActionResult>
-  signUpWithEmail: (name: string, email: string, password: string) => Promise<AuthActionResult>
+  signUpWithEmail: (name: string, email: string, password: string, phone?: string) => Promise<AuthActionResult>
   signInWithSocial: (provider: SocialProvider) => Promise<AuthActionResult>
   sendPasswordReset: (email: string) => Promise<AuthActionResult>
   signOut: () => Promise<void>
   updateUser: (updates: Partial<AuthProfile>) => void
+  clearAuthError: () => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
-
-function parseJwtPayload(token: string): { sub?: string; email?: string; role?: string; exp?: number; iat?: number } | null {
-  try {
-    const base64Url = token.split('.')[1]
-    if (!base64Url) return null
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join(''),
-    )
-    return JSON.parse(jsonPayload)
-  } catch {
-    return null
-  }
-}
-
-function mapSupabaseUser(user: SupabaseUser): AuthProfile {
-  const metadata = user.user_metadata ?? {}
-  const provider = user.app_metadata.provider
-  return {
-    id: user.id,
-    email: user.email ?? '',
-    name: metadata.full_name || metadata.name || user.email?.split('@')[0] || 'Fairshare member',
-    avatarUrl: metadata.avatar_url || metadata.picture,
-    provider: provider === 'google' || provider === 'apple' || provider === 'github' ? provider : 'email',
-    onboardingStep: 'done',
-    isDemo: false,
-  }
-}
 
 function friendlyError(caught: unknown): Error {
   if (caught instanceof Error) return caught
   return new Error('Authentication could not be completed. Please try again.')
 }
 
+function profileFromApi(
+  profile: { id: string; email: string; name: string; avatarUrl?: string; phone?: string; onboardingStep?: string },
+  provider: AuthProfile['provider'] = 'email',
+): AuthProfile {
+  return {
+    id: profile.id,
+    email: profile.email,
+    name: profile.name,
+    avatarUrl: profile.avatarUrl,
+    phone: profile.phone,
+    onboardingStep: profile.onboardingStep,
+    provider,
+    isDemo: false,
+  }
+}
+
+function callbackParameters(): URLSearchParams {
+  const parameters = new URLSearchParams(window.location.search)
+  const hashParameters = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+  hashParameters.forEach((value, key) => parameters.set(key, value))
+  return parameters
+}
+
+function clearCallbackUrl(): void {
+  window.history.replaceState({}, document.title, window.location.pathname)
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs = AUTH_CHECK_TIMEOUT_MS): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error('Authentication check timed out.')), timeoutMs)
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer)
+        resolve(value)
+      },
+      (error: unknown) => {
+        window.clearTimeout(timer)
+        reject(error)
+      },
+    )
+  })
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthProfile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [authError, setAuthError] = useState<string | null>(null)
 
   useEffect(() => {
     let mounted = true
+    const initialParameters = callbackParameters()
+    const expectsSession =
+      initialParameters.has('access_token') ||
+      initialParameters.has('refresh_token') ||
+      initialParameters.has('error') ||
+      initialParameters.has('error_description') ||
+      Boolean(localStorage.getItem(ACCESS_TOKEN_KEY))
+
+    const fallbackTimer = window.setTimeout(() => {
+      if (!mounted) return
+      if (expectsSession) {
+        setAuthError('Sign-in took too long. Check that the backend is running, then try again.')
+      }
+      setLoading(false)
+    }, AUTH_CHECK_TIMEOUT_MS + 1_000)
 
     async function initSession() {
-      // 1. Check if returning from Google OAuth redirect (URL contains tokens)
-      const urlParams = new URLSearchParams(window.location.search)
-      const accessToken = urlParams.get('access_token')
-      const refreshToken = urlParams.get('refresh_token')
+      const parameters = callbackParameters()
+      const accessToken = parameters.get('access_token')
+      const refreshToken = parameters.get('refresh_token')
+      const oauthError = parameters.get('error_description') ?? parameters.get('error')
+      const hasCallback =
+        parameters.has('access_token') ||
+        parameters.has('refresh_token') ||
+        parameters.has('error') ||
+        parameters.has('error_description')
+      const pendingProvider = localStorage.getItem(OAUTH_PROVIDER_KEY)
+      const provider = pendingProvider === 'github' || pendingProvider === 'google' ? pendingProvider : 'email'
 
-      if (accessToken && refreshToken) {
-        localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
-        localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
-        window.history.replaceState({}, document.title, window.location.pathname)
-
-        try {
-          const profile = await api.users.getProfile()
-          if (mounted) {
-            setUser({
-              id: profile.id,
-              email: profile.email,
-              name: profile.name,
-              avatarUrl: profile.avatarUrl,
-              provider: 'google',
-              isDemo: false,
-            })
-            setLoading(false)
-            return
-          }
-        } catch (e) {
-          console.warn('Could not restore Google OAuth user profile from API', e)
+      try {
+        if (oauthError) {
+          clearCallbackUrl()
+          throw new Error(oauthError)
         }
-      }
 
-      // 2. Check if existing Spring Boot API token exists
-      const existingToken = localStorage.getItem(ACCESS_TOKEN_KEY)
-      if (existingToken) {
-        try {
-          const profile = await api.users.getProfile()
-          if (mounted) {
-            setUser({
-              id: profile.id,
-              email: profile.email,
-              name: profile.name,
-              avatarUrl: profile.avatarUrl,
-              provider: 'email',
-              isDemo: false,
-            })
-            setLoading(false)
-            return
-          }
-        } catch {
-          localStorage.removeItem(ACCESS_TOKEN_KEY)
-          localStorage.removeItem(REFRESH_TOKEN_KEY)
+        if (hasCallback && (!accessToken || !refreshToken)) {
+          clearCallbackUrl()
+          throw new Error('The sign-in provider returned an incomplete session. Please try again.')
         }
-      }
 
-      // 3. Check Supabase if configured
-      if (supabase) {
-        try {
-          const { data } = await supabase.auth.getSession()
-          if (data.session?.user && mounted) {
-            setUser(mapSupabaseUser(data.session.user))
-            setLoading(false)
-            return
-          }
-        } catch (error) {
-          console.error('Could not restore Supabase session', error)
+        if (accessToken && refreshToken) {
+          localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
+          localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
+          localStorage.removeItem(OAUTH_PROVIDER_KEY)
+          clearCallbackUrl()
+
+          const profile = await withTimeout(api.users.getProfile())
+          if (mounted) setUser(profileFromApi(profile, provider))
+          return
         }
-      }
 
-      // 4. Default to Demo session
-      if (mounted) {
-        setUser(loadDemoSession())
-        setLoading(false)
+        if (localStorage.getItem(ACCESS_TOKEN_KEY)) {
+          try {
+            const profile = await withTimeout(api.users.getProfile())
+            if (mounted) setUser(profileFromApi(profile))
+          } catch (error) {
+            localStorage.removeItem(ACCESS_TOKEN_KEY)
+            localStorage.removeItem(REFRESH_TOKEN_KEY)
+            throw error
+          }
+        }
+      } catch (caught) {
+        console.warn('Could not restore the authentication session.', caught)
+        if (mounted) setAuthError(friendlyError(caught).message)
+      } finally {
+        window.clearTimeout(fallbackTimer)
+        if (mounted) setLoading(false)
       }
     }
 
     void initSession()
-
     return () => {
-      clearTimeout(fallbackTimer)
       mounted = false
+      window.clearTimeout(fallbackTimer)
     }
-  }, [])
-
-  useEffect(() => {
-    if (!supabase || !isNativeAuth()) return
-    let removeListener: (() => Promise<void>) | undefined
-    void listenForNativeOAuth().then((remove) => { removeListener = remove })
-    return () => { void removeListener?.() }
   }, [])
 
   const value = useMemo<AuthContextValue>(() => ({
     user,
     loading,
-    configured: isSupabaseConfigured || Boolean(import.meta.env.VITE_API_BASE_URL),
-    demoCredentials: { email: DEMO_EMAIL, password: DEMO_PASSWORD },
+    authError,
 
     async signInWithEmail(email, password) {
+      setAuthError(null)
       try {
-        // Attempt Spring Boot API login first
-        try {
-          const response = await api.auth.login({ email, password })
-          localStorage.setItem(ACCESS_TOKEN_KEY, response.accessToken)
-          localStorage.setItem(REFRESH_TOKEN_KEY, response.refreshToken)
-          const profile: AuthProfile = {
-            id: response.user.id,
-            email: response.user.email,
-            name: response.user.name,
-            avatarUrl: response.user.avatarUrl,
-            provider: 'email',
-            isDemo: false,
-          }
-          saveDemoSession(null)
-          setUser(profile)
-          return {}
-        } catch (apiErr) {
-          // If api fails with 401 or network error and demo credentials are provided, fall back to demo
-          if (email.toLowerCase() === DEMO_EMAIL && password === DEMO_PASSWORD) {
-            const demoProfile: AuthProfile = {
-              id: 'demo-email-user',
-              email: DEMO_EMAIL,
-              name: 'Riya Kapoor',
-              provider: 'email',
-              isDemo: true,
-            }
-            saveDemoSession(demoProfile)
-            setUser(demoProfile)
-            return {}
-          }
-
-          if (supabase) {
-            const { error } = await supabase.auth.signInWithPassword({ email, password })
-            if (error) throw error
-            return {}
-          }
-
-          throw apiErr
-        }
-      } catch (caught) {
-        if (supabase) {
-          try {
-            const { error } = await supabase.auth.signInWithPassword({ email, password })
-            if (error) throw error
-            return {}
-          } catch {
-            // fall through to throw original
-          }
-        }
-        throw friendlyError(caught)
-      }
-    },
-
-    async signUpWithEmail(name, email, password) {
-      try {
-        // Attempt Spring Boot API registration first
-        try {
-          const response = await api.auth.register({ name, email, password })
-          localStorage.setItem(ACCESS_TOKEN_KEY, response.accessToken)
-          localStorage.setItem(REFRESH_TOKEN_KEY, response.refreshToken)
-          const profile: AuthProfile = {
-            id: response.user.id,
-            email: response.user.email,
-            name: response.user.name,
-            avatarUrl: response.user.avatarUrl,
-            provider: 'email',
-            isDemo: false,
-          }
-          saveDemoSession(null)
-          setUser(profile)
-          return { message: 'Account created successfully.' }
-        } catch (apiErr) {
-          if (supabase) {
-            const { data, error } = await supabase.auth.signUp({
-              email,
-              password,
-              options: {
-                data: { full_name: name },
-                emailRedirectTo: getAuthRedirectUrl(),
-              },
-            })
-            if (error) throw error
-            return data.session ? {} : { message: 'Check your inbox to confirm your email, then sign in.' }
-          }
-
-          // Fallback demo signup
-          const demoProfile: AuthProfile = {
-            id: crypto.randomUUID(),
-            email,
-            name,
-            provider: 'email',
-            isDemo: true,
-          }
-          saveDemoSession(demoProfile)
-          setUser(demoProfile)
-          return { message: 'Demo account created locally on this device.' }
-        }
-      } catch (caught) {
-        throw friendlyError(caught)
-      }
-    },
-
-    async signInWithSocial(provider) {
-      try {
-        if (provider === 'google') {
-          // Direct to Spring Boot Google OAuth endpoint if backend is targeted
-          window.location.href = `${API_BASE_URL}/auth/oauth/google`
-          return {}
-        }
-
-        if (supabase) {
-          const { error } = await supabase.auth.signInWithOAuth({
-            provider,
-            options: { redirectTo: getAuthRedirectUrl() },
-          })
-          if (error) throw error
-          return {}
-        }
-
-        // Demo social fallback
-        await new Promise((resolve) => window.setTimeout(resolve, 450))
-        const providerName = provider[0]?.toUpperCase() + provider.slice(1)
-        const profile: AuthProfile = {
-          id: `demo-${provider}-user`,
-          email: `${provider}.demo@fairshare.app`,
-          name: provider === 'apple' ? 'Apple User' : `${providerName} User`,
-          provider,
-          isDemo: true,
-        }
-        saveDemoSession(profile)
-        setUser(profile)
+        const response = await api.auth.login({ email, password })
+        localStorage.setItem(ACCESS_TOKEN_KEY, response.accessToken)
+        localStorage.setItem(REFRESH_TOKEN_KEY, response.refreshToken)
+        localStorage.removeItem(OAUTH_PROVIDER_KEY)
+        setUser(profileFromApi(response.user))
         return {}
       } catch (caught) {
         throw friendlyError(caught)
       }
     },
 
-    async sendPasswordReset(email) {
+    async signUpWithEmail(name, email, password, phone) {
+      setAuthError(null)
       try {
-        if (supabase) {
-          const { error } = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: getAuthRedirectUrl(),
-          })
-          if (error) throw error
-        } else {
-          await new Promise((resolve) => window.setTimeout(resolve, 450))
-        }
-        return { message: 'If an account exists for that email, a reset link is on its way.' }
+        const response = await api.auth.register({ name, email, password, phone })
+        localStorage.setItem(ACCESS_TOKEN_KEY, response.accessToken)
+        localStorage.setItem(REFRESH_TOKEN_KEY, response.refreshToken)
+        localStorage.removeItem(OAUTH_PROVIDER_KEY)
+        setUser(profileFromApi({
+          ...response.user,
+          phone: response.user.phone ?? phone,
+        }))
+        return { message: 'Account created successfully.' }
       } catch (caught) {
         throw friendlyError(caught)
       }
+    },
+
+    async signInWithSocial(provider) {
+      setAuthError(null)
+      if (provider !== 'google' && provider !== 'github') {
+        throw new Error('Apple sign-in is coming soon.')
+      }
+      localStorage.setItem(OAUTH_PROVIDER_KEY, provider)
+      window.location.assign(`${API_BASE_URL}/auth/oauth/${provider}`)
+      return {}
+    },
+
+    async sendPasswordReset() {
+      return { message: 'Password recovery will be available after the backend reset endpoint is enabled.' }
     },
 
     async signOut() {
@@ -322,24 +209,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           await api.auth.logout(refreshToken)
         } catch {
-          // ignore error on logout
+          // Clear the local session even if the backend is unavailable.
         }
       }
       localStorage.removeItem(ACCESS_TOKEN_KEY)
       localStorage.removeItem(REFRESH_TOKEN_KEY)
-
-      if (supabase) {
-        try {
-          await supabase.auth.signOut()
-        } catch {
-          // ignore
-        }
-      }
-
-      saveDemoSession(null)
+      localStorage.removeItem(OAUTH_PROVIDER_KEY)
+      setAuthError(null)
       setUser(null)
     },
-  }), [user])
+
+    updateUser(updates) {
+      setUser((current) => current ? { ...current, ...updates } : null)
+    },
+
+    clearAuthError() {
+      setAuthError(null)
+    },
+  }), [authError, loading, user])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
