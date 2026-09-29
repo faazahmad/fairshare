@@ -14,6 +14,9 @@ importers:
       '@capacitor/browser':
         specifier: ^8.0.4
         version: 8.0.4(@capacitor/core@8.5.0)
+      '@capacitor/contacts':
+        specifier: 1.0.1
+        version: 1.0.1(@capacitor/core@8.5.0)
       '@capacitor/core':
         specifier: ^8.5.0
         version: 8.5.0
@@ -88,6 +91,11 @@ packages:
     resolution: {integrity: sha512-rLdzMUM5QV4WITcqoWv04p32i14BXgUH2diqEH6MWQlWaJfiyNrvOyt/+d5vHAfOxOm1klBu637VDEobctlwBA==}
     engines: {node: '>=22.0.0'}
     hasBin: true
+
+  '@capacitor/contacts@1.0.1':
+    resolution: {integrity: sha512-R/iV1OZ9Gk3rr2puTn1ouTuYRDV2XFx2gmicEt6jIU+cKtBZgXObEo55rYm16Cg6puOfMkU10mWtoY0O5uhXtg==}
+    peerDependencies:
+      '@capacitor/core': '>=8.0.0'
 
   '@capacitor/core@8.5.0':
     resolution: {integrity: sha512-Ca4krtqH1hothjtBIwf2J2TW7IhYq1ujp8QeItTiJohNsqij8ja2DYYH3DU0l8RmxCWaBAFTGA2TgOgOMCSNsQ==}
@@ -462,6 +470,7 @@ packages:
   '@xmldom/xmldom@0.9.10':
     resolution: {integrity: sha512-A9gOqLdi6cV4ibazAjcQufGj0B1y/vDqYrcuP6d/6x8P27gRS8643Dj9o1dEKtB6O7fwxb2FgBmJS2mX7gpvdw==}
     engines: {node: '>=14.6'}
+    deprecated: this version has critical issues, please update to the latest version
 
   acorn-jsx@5.3.2:
     resolution: {integrity: sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ==}
@@ -1293,6 +1302,10 @@ snapshots:
       xml2js: 0.6.2
     transitivePeerDependencies:
       - supports-color
+
+  '@capacitor/contacts@1.0.1(@capacitor/core@8.5.0)':
+    dependencies:
+      '@capacitor/core': 8.5.0
 
   '@capacitor/core@8.5.0':
     dependencies:

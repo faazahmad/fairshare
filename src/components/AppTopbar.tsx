@@ -1,4 +1,4 @@
-import { Bell, BellRing, ChevronDown, LockKeyhole, Search, Settings, UserRound } from 'lucide-react'
+import { Bell, BellRing, ChevronDown, HandCoins, LockKeyhole, Search, Settings, UserRound } from 'lucide-react'
 import { useState } from 'react'
 import type { LedgerState, NotificationPreferences, User } from '../domain/types'
 import type { AppView } from './AppNavigation'
@@ -17,10 +17,11 @@ interface AppTopbarProps {
   onQueryChange: (value: string) => void
   onToggleNotifications: () => void
   onMarkNotificationsRead: () => void
+  onOpenPeopleHub: () => void
   onOpenSettings: (section: SettingsSection) => void
 }
 
-export function AppTopbar({ state, currentUser, currentView, query, notificationsOpen, notificationsUnread, notificationPreferences, onQueryChange, onToggleNotifications, onMarkNotificationsRead, onOpenSettings }: AppTopbarProps) {
+export function AppTopbar({ state, currentUser, currentView, query, notificationsOpen, notificationsUnread, notificationPreferences, onQueryChange, onToggleNotifications, onMarkNotificationsRead, onOpenPeopleHub, onOpenSettings }: AppTopbarProps) {
   const [accountOpen, setAccountOpen] = useState(false)
   const searchable = currentView === 'expenses' || currentView === 'activity'
 
@@ -36,6 +37,7 @@ export function AppTopbar({ state, currentUser, currentView, query, notification
         <input value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder={searchable ? `Search ${currentView}` : 'Search Fairshare'} />
       </label>
       <div className="topbar__actions">
+        <button className={`icon-button topbar-people-button ${currentView === 'people' ? 'is-active' : ''}`} onClick={() => { setAccountOpen(false); if (notificationsOpen) onToggleNotifications(); onOpenPeopleHub() }} aria-label="Money requests and contacts" title="Money requests and contacts"><HandCoins size={19} /></button>
         <div className="popover-anchor">
           <button className={`icon-button ${notificationsOpen ? 'is-active' : ''}`} onClick={() => { setAccountOpen(false); onToggleNotifications() }} aria-label="Notifications"><Bell size={19} />{notificationsUnread && <span className="notification-dot" />}</button>
           <NotificationPanel open={notificationsOpen} state={state} preferences={notificationPreferences} unread={notificationsUnread} onMarkRead={onMarkNotificationsRead} onClose={onToggleNotifications} />

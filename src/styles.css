@@ -1787,8 +1787,8 @@ h1, h2, .brand { font-family: Manrope, 'DM Sans', sans-serif; }
   mask-image: linear-gradient(28deg, transparent 8%, #000 45%, transparent 92%);
 }
 .app-shell--native .sidebar,
-.app-shell--native .main-panel,
-.app-shell--native .mobile-nav { position: relative; z-index: 1; }
+.app-shell--native .main-panel { position: relative; z-index: 1; }
+.app-shell--native .mobile-nav { position: fixed; z-index: 40; }
 .app-shell--native .main-panel,
 .app-shell--native .page-panel,
 .app-shell--native .content { background: transparent; }
@@ -1873,6 +1873,78 @@ h1, h2, .brand { font-family: Manrope, 'DM Sans', sans-serif; }
 .contact-card > p { color: var(--muted); font-size: 9px; line-height: 1.5; }
 .contact-card__actions { display: grid; grid-template-columns: 1fr auto; gap: 7px; margin-top: auto; }
 
+/* Bills live with expenses, while requests and contacts have their own people hub. */
+.bills-panel { margin-top: 25px; padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: color-mix(in srgb, var(--surface) 95%, transparent); box-shadow: var(--shadow); }
+.bills-panel__header { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.bills-panel__title { display: flex; align-items: center; gap: 11px; }
+.bills-panel__title > span { display: grid; place-items: center; flex: 0 0 42px; height: 42px; border-radius: 13px; color: var(--coral); background: var(--coral-soft); }
+.bills-panel__title > div { display: grid; gap: 2px; }
+.bills-panel__title small { color: var(--coral); font-size: 7px; font-weight: 800; letter-spacing: .55px; text-transform: uppercase; }
+.bills-panel__title h2 { font-size: 16px; }
+.bills-panel__title p { color: var(--muted); font-size: 9px; }
+.bills-panel__actions { display: flex; align-items: center; gap: 9px; }
+.bills-panel__actions > i { padding: 6px 8px; border-radius: 999px; color: var(--mint-text); background: var(--mint); font-size: 7px; font-style: normal; font-weight: 800; text-transform: uppercase; }
+.bill-form { display: grid; grid-template-columns: minmax(160px, 1.2fr) repeat(3, minmax(125px, .75fr)) auto; align-items: end; gap: 9px; margin-top: 16px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--canvas); }
+.bill-form .field { margin: 0; }
+.bill-form .form-error { grid-column: 1 / -1; }
+.bill-list { display: grid; gap: 7px; margin-top: 15px; }
+.bill-row { display: grid; grid-template-columns: 43px minmax(0, 1fr) auto auto; align-items: center; gap: 11px; min-height: 61px; padding: 8px 9px; border: 1px solid var(--line); border-radius: 13px; background: var(--surface); }
+.bill-row.is-overdue { border-color: color-mix(in srgb, var(--red) 34%, var(--line)); }
+.bill-row.is-paid { opacity: .72; }
+.bill-row__date { display: grid; place-items: center; width: 41px; height: 43px; border-radius: 11px; color: var(--forest-2); background: var(--mint); }
+.bill-row__date strong { font-size: 13px; line-height: 1; }
+.bill-row__date small { margin-top: 2px; font-size: 7px; text-transform: uppercase; }
+.bill-row__copy { display: grid; gap: 3px; min-width: 0; }
+.bill-row__copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
+.bill-row__copy small { color: var(--muted); font-size: 8px; text-transform: capitalize; }
+.bill-row__amount { font-size: 11px; white-space: nowrap; }
+.bill-row__buttons { display: flex; align-items: center; gap: 4px; }
+.bills-empty, .bills-panel__loading { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 88px; margin-top: 14px; border: 1px dashed var(--line); border-radius: 13px; color: var(--muted); }
+.bills-empty > span { display: grid; gap: 3px; }
+.bills-empty strong { color: var(--ink); font-size: 10px; }
+.bills-empty small, .bills-panel__loading { font-size: 8px; }
+
+.topbar-people-button.is-active { color: #fff; border-color: var(--coral); background: var(--coral); }
+.people-page { padding-bottom: 100px; }
+.people-hero { display: flex; align-items: center; gap: 13px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.people-hero__icon { display: grid; place-items: center; flex: 0 0 50px; height: 50px; border-radius: 16px; color: var(--coral); background: var(--coral-soft); }
+.people-hero > div { display: grid; gap: 4px; }
+.people-hero h1 { font-size: clamp(24px, 3vw, 35px); letter-spacing: -1px; }
+.people-hero p { color: var(--muted); font-size: 10px; }
+.people-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; width: min(450px, 100%); margin-top: 17px; padding: 5px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.people-tabs button { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 7px; min-height: 39px; padding: 0 11px; border-radius: 10px; color: var(--muted); background: transparent; text-align: left; font-size: 9px; font-weight: 800; }
+.people-tabs button i { display: grid; place-items: center; min-width: 20px; height: 20px; padding-inline: 4px; border-radius: 999px; background: var(--canvas); font-size: 7px; font-style: normal; }
+.people-tabs button.is-active { color: var(--coral); background: var(--coral-soft); }
+.people-loading, .people-error { margin-top: 13px; }
+.people-section { margin-top: 23px; }
+.people-section > header { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 14px; }
+.people-section > header > div:first-child { display: grid; gap: 4px; }
+.people-section > header h2 { font-size: 20px; }
+.people-section > header p { color: var(--muted); font-size: 9px; }
+.request-form { display: grid; grid-template-columns: 1fr 1.2fr .65fr .65fr auto; align-items: end; gap: 9px; margin-bottom: 15px; padding: 15px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface); box-shadow: var(--shadow); }
+.request-form .field { margin: 0; }
+.request-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 10px; }
+.request-card { display: grid; grid-template-columns: 41px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 116px; padding: 15px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: 0 7px 24px rgb(20 55 49 / 5%); }
+.request-card__icon { display: grid; place-items: center; width: 41px; height: 41px; border-radius: 13px; color: var(--violet); background: #efedff; }
+.request-card > div { display: grid; gap: 3px; min-width: 0; }
+.request-card > div strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.request-card > div small { color: var(--muted); font-size: 8px; text-transform: capitalize; }
+.request-card > div span { color: var(--muted); font-size: 7px; }
+.request-card > strong { font-size: 11px; white-space: nowrap; }
+.request-card footer { display: flex; grid-column: 2 / -1; gap: 6px; }
+.contact-header-actions { display: flex; gap: 7px; }
+.device-contact-note { display: flex; align-items: center; gap: 7px; margin: -4px 0 13px; padding: 9px 11px; border-radius: 10px; color: var(--muted); background: var(--canvas); font-size: 8px; }
+.people-page .contact-card__actions { grid-template-columns: 1fr auto auto; }
+
+[data-theme='dark'] .bills-panel,
+[data-theme='dark'] .bill-row,
+[data-theme='dark'] .people-tabs,
+[data-theme='dark'] .request-form,
+[data-theme='dark'] .request-card { color: var(--ink); background: color-mix(in srgb, var(--surface) 94%, transparent); border-color: var(--line); }
+[data-theme='dark'] .bill-form,
+[data-theme='dark'] .people-tabs button i,
+[data-theme='dark'] .device-contact-note { background: var(--surface-raised); }
+
 [data-theme='dark'] .activity-totals,
 [data-theme='dark'] .direct-people-section,
 [data-theme='dark'] .direct-add-contact,
@@ -1884,6 +1956,9 @@ h1, h2, .brand { font-family: Manrope, 'DM Sans', sans-serif; }
 [data-theme='dark'] .direct-contact-row.is-selected { background: color-mix(in srgb, var(--mint) 22%, var(--surface-raised)); }
 
 @media (max-width: 680px) {
+  .app-shell { min-height: 100dvh; padding-bottom: calc(82px + env(safe-area-inset-bottom)); }
+  .mobile-nav { position: fixed; right: 0; bottom: 0; left: 0; z-index: 40; transform: translateZ(0); }
+  .content { padding-bottom: calc(104px + env(safe-area-inset-bottom)); }
   .activity-hero { align-items: center; gap: 12px; }
   .activity-hero > div:first-child { gap: 10px; }
   .activity-hero .page-hero__icon { flex-basis: 42px; height: 42px; border-radius: 14px; }
@@ -1908,4 +1983,29 @@ h1, h2, .brand { font-family: Manrope, 'DM Sans', sans-serif; }
   .contacts-hub__header > .button svg { margin: 0; }
   .contact-add-form__fields { grid-template-columns: 1fr; }
   .contact-card-grid { grid-template-columns: 1fr; }
+  .bills-panel { margin-top: 20px; padding: 13px; }
+  .bills-panel__header { align-items: flex-start; }
+  .bills-panel__title p { max-width: 190px; }
+  .bills-panel__actions > i { display: none; }
+  .bills-panel__actions .button { width: 42px; min-width: 42px; padding: 0; font-size: 0; }
+  .bill-form { grid-template-columns: 1fr 1fr; }
+  .bill-form .field:first-child { grid-column: 1 / -1; }
+  .bill-form > .button { grid-column: 1 / -1; }
+  .bill-row { grid-template-columns: 39px minmax(0, 1fr) auto; gap: 8px; }
+  .bill-row__date { width: 37px; height: 39px; }
+  .bill-row__amount { grid-column: 3; grid-row: 1; }
+  .bill-row__buttons { grid-column: 2 / -1; }
+  .bill-row__buttons .button { min-height: 31px; padding-inline: 10px; font-size: 8px; }
+  .people-hero { align-items: flex-start; }
+  .people-hero__icon { flex-basis: 43px; height: 43px; }
+  .people-hero h1 { font-size: 22px; }
+  .people-hero p { max-width: 280px; line-height: 1.45; }
+  .people-section > header { align-items: flex-start; }
+  .people-section > header > .button { flex: 0 0 42px; width: 42px; padding: 0; font-size: 0; }
+  .request-form { grid-template-columns: 1fr 1fr; }
+  .request-form .field:first-child, .request-form .field:nth-child(2), .request-form > .button { grid-column: 1 / -1; }
+  .request-list { grid-template-columns: 1fr; }
+  .contact-header-actions { flex-direction: column; }
+  .contact-header-actions .button { min-width: 42px; padding-inline: 9px; font-size: 0; }
+  .people-page .contact-card__actions { grid-template-columns: 1fr auto auto; }
 }

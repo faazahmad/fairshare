@@ -8,6 +8,7 @@ import { findUser } from './lib/ledger'
 import { AppNavigation, type AppView } from './components/AppNavigation'
 import { AppTopbar } from './components/AppTopbar'
 import { MobileNavigation } from './components/MobileNavigation'
+import { UpcomingBillsPanel } from './components/UpcomingBillsPanel'
 import { useAuth } from './auth/AuthProvider'
 import { localeForLanguage, resolveLanguage } from './lib/i18n'
 import type { SettingsSection } from './pages/SettingsPage'
@@ -19,6 +20,7 @@ const ActivityPage = lazy(() => import('./pages/ActivityPage').then((m) => ({ de
 const GroupsPage = lazy(() => import('./pages/GroupsPage').then((m) => ({ default: m.GroupsPage })))
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 const PayLendPage = lazy(() => import('./pages/PayLendPage').then((m) => ({ default: m.PayLendPage })))
+const PeopleHubPage = lazy(() => import('./pages/PeopleHubPage').then((m) => ({ default: m.PeopleHubPage })))
 
 const ExpenseModal = lazy(() => import('./components/ExpenseModal').then((m) => ({ default: m.ExpenseModal })))
 const SettleModal = lazy(() => import('./components/SettleModal').then((m) => ({ default: m.SettleModal })))
@@ -245,6 +247,7 @@ export default function App({ nativeExperience = false }: AppProps) {
       onQueryChange={setQuery}
       onToggleNotifications={() => setNotificationsOpen((open) => !open)}
       onMarkNotificationsRead={() => setNotificationsUnread(false)}
+      onOpenPeopleHub={() => navigate('people')}
       onOpenSettings={openSettings}
     />
   ), [state, currentUser, currentView, query, notificationsOpen, notificationsUnread, notifications])
@@ -283,13 +286,15 @@ export default function App({ nativeExperience = false }: AppProps) {
                     </button>
                   </div>
                 </section>
+                <UpcomingBillsPanel currency={currency} />
               </div>
             </main>
           )
         )}
         {currentView === 'activity' && <ActivityPage state={state} query={query} onOpenExpense={setSelectedExpense} onOpenPayment={setSelectedPayment} onOpenNotificationSettings={() => openSettings('notifications')} topbar={topbar} />}
         {currentView === 'groups' && <GroupsPage state={state} onCreateGroup={openCreateGroup} onOpenGroup={openGroup} onManageGroup={openManageGroup} topbar={topbar} />}
-        {currentView === 'pay' && <PayLendPage topbar={topbar} onSplitWithContact={(contact) => openDirectExpense(contact)} />}
+        {currentView === 'pay' && <PayLendPage topbar={topbar} />}
+        {currentView === 'people' && <PeopleHubPage topbar={topbar} currentUserId={state.currentUserId} currency={currency} onSplitWithContact={(contact) => openDirectExpense(contact)} />}
         {currentView === 'settings' && <SettingsPage user={currentUser} activeSection={settingsSection} preferences={preferences} notifications={notifications} security={security} authProvider={authUser?.provider ?? 'email'} onSectionChange={setSettingsSection} onSaveProfile={updateCurrentUser} onUpdatePreferences={updatePreferences} onUpdateNotifications={updateNotifications} onUpdateSecurity={updateSecurity} onResetPassword={async () => (await sendPasswordReset(currentUser.email)).message ?? 'Password reset instructions sent.'} onSignOut={() => void signOut()} topbar={topbar} />}
       </Suspense>
 
