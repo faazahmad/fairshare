@@ -112,10 +112,10 @@ export function LoginPage({ nativeExperience = false, notice = '', onCreateAccou
         </div>
 
         <div className="auth-preview-card">
-          <header><span>🌴</span><div><strong>Goa getaway</strong><small>4 friends · 12 expenses</small></div><i>Settling soon</i></header>
-          <div className="auth-preview-card__balance"><small>Your balance</small><strong>₹10,108.33</strong><span>you get back</span></div>
-          <div className="auth-preview-card__people"><span><i className="preview-avatar violet">MS</i><b>Maya owes you</b></span><strong>₹3,025</strong></div>
-          <div className="auth-preview-card__people"><span><i className="preview-avatar green">KM</i><b>Kabir owes you</b></span><strong>₹3,692</strong></div>
+          <header><span>🔑</span><div><strong>September rent</strong><small>3 housemates · 4 shared bills</small></div><i>Due in 3 days</i></header>
+          <div className="auth-preview-card__balance"><small>Your balance</small><strong>₹8,750.00</strong><span>you get back</span></div>
+          <div className="auth-preview-card__people"><span><i className="preview-avatar violet">AV</i><b>Aanya owes you</b></span><strong>₹5,500</strong></div>
+          <div className="auth-preview-card__people"><span><i className="preview-avatar green">RN</i><b>Rohan owes you</b></span><strong>₹3,250</strong></div>
         </div>
 
         <div className="auth-trust-row">

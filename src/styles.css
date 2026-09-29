@@ -1766,22 +1766,25 @@ h1, h2, .brand { font-family: Manrope, 'DM Sans', sans-serif; }
   position: relative;
   isolation: isolate;
   background:
-    radial-gradient(circle at 18% 12%, rgb(22 129 106 / 8%), transparent 27%),
-    linear-gradient(180deg, #f7f8f4, #f1f5f1);
+    radial-gradient(circle at 78% 8%, rgb(47 168 137 / 11%), transparent 26%),
+    radial-gradient(circle at 4% 82%, rgb(241 111 79 / 7%), transparent 23%),
+    linear-gradient(180deg, #f7f9f5, #edf3ef);
 }
 .app-shell--native::before,
 .app-shell--native::after { content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none; }
 .app-shell--native::before {
-  opacity: .52;
+  opacity: .72;
   background:
-    linear-gradient(135deg, transparent 0 73%, rgb(25 103 87 / 5%) 74% 76%, transparent 77% 100%) 0 0 / 104px 104px,
-    linear-gradient(45deg, transparent 0 46%, rgb(241 111 79 / 3.5%) 47% 49%, transparent 50% 100%) 0 0 / 104px 104px;
-  mask-image: linear-gradient(to bottom, #000 0%, rgb(0 0 0 / 58%) 70%, transparent 100%);
+    linear-gradient(148deg, transparent 0 34%, rgb(28 109 91 / 5.5%) 34.5% 45%, transparent 45.5% 100%) 0 0 / 210px 250px,
+    linear-gradient(32deg, transparent 0 55%, rgb(241 111 79 / 4%) 55.5% 64%, transparent 64.5% 100%) 48px 22px / 210px 250px;
+  mask-image: linear-gradient(155deg, #000 0%, rgb(0 0 0 / 72%) 58%, transparent 100%);
 }
 .app-shell--native::after {
-  opacity: .45;
-  background: radial-gradient(circle, rgb(24 111 92 / 14%) 0 1px, transparent 1.5px) 14px 18px / 38px 38px;
-  mask-image: linear-gradient(145deg, transparent 12%, #000 48%, transparent 90%);
+  opacity: .55;
+  background:
+    radial-gradient(circle, rgb(24 111 92 / 18%) 0 1px, transparent 1.5px) 15px 18px / 42px 42px,
+    repeating-linear-gradient(90deg, transparent 0 39px, rgb(24 111 92 / 3.5%) 40px 41px, transparent 42px 82px);
+  mask-image: linear-gradient(28deg, transparent 8%, #000 45%, transparent 92%);
 }
 .app-shell--native .sidebar,
 .app-shell--native .main-panel,
@@ -1793,17 +1796,116 @@ h1, h2, .brand { font-family: Manrope, 'DM Sans', sans-serif; }
 
 [data-theme='dark'] .app-shell--native {
   background:
-    radial-gradient(circle at 18% 12%, rgb(58 185 150 / 7%), transparent 28%),
+    radial-gradient(circle at 78% 8%, rgb(48 190 152 / 8%), transparent 27%),
+    radial-gradient(circle at 4% 82%, rgb(241 111 79 / 5%), transparent 24%),
     #000;
 }
 [data-theme='dark'] .app-shell--native::before {
-  opacity: .68;
+  opacity: .8;
   background:
-    linear-gradient(135deg, transparent 0 73%, rgb(113 213 185 / 4.5%) 74% 76%, transparent 77% 100%) 0 0 / 104px 104px,
-    linear-gradient(45deg, transparent 0 46%, rgb(241 111 79 / 4%) 47% 49%, transparent 50% 100%) 0 0 / 104px 104px;
+    linear-gradient(148deg, transparent 0 34%, rgb(101 211 181 / 4.5%) 34.5% 45%, transparent 45.5% 100%) 0 0 / 210px 250px,
+    linear-gradient(32deg, transparent 0 55%, rgb(241 111 79 / 4.5%) 55.5% 64%, transparent 64.5% 100%) 48px 22px / 210px 250px;
 }
-[data-theme='dark'] .app-shell--native::after { opacity: .3; background-image: radial-gradient(circle, rgb(255 255 255 / 10%) 0 1px, transparent 1.5px); }
+[data-theme='dark'] .app-shell--native::after { opacity: .32; background-image: radial-gradient(circle, rgb(255 255 255 / 11%) 0 1px, transparent 1.5px); }
 [data-theme='dark'] .app-shell--native .main-panel,
 [data-theme='dark'] .app-shell--native .page-panel,
 [data-theme='dark'] .app-shell--native .content { background: transparent; }
 [data-theme='dark'] .app-shell--native .topbar { background: rgb(0 0 0 / 89%); }
+
+/* Activity: compact hierarchy for phone screens. */
+.activity-hero { padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.activity-settings-button { min-width: 104px; }
+.activity-totals { display: grid; gap: 12px; margin-top: 22px; padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: color-mix(in srgb, var(--surface) 92%, transparent); box-shadow: var(--shadow); }
+.activity-totals > span { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .55px; text-transform: uppercase; }
+.activity-totals > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.activity-totals > div > div { display: grid; gap: 4px; padding: 12px; border-radius: 13px; background: var(--canvas); }
+.activity-totals small { color: var(--muted); font-size: 9px; }
+.activity-totals strong { font-size: 16px; }
+
+/* Direct person-to-person splits and phone discovery. */
+.direct-expense-modal { width: min(720px, 100%); }
+.direct-expense-modal .modal__header .eyebrow { display: inline-flex; align-items: center; gap: 5px; }
+.direct-people-section { margin-bottom: 18px; padding: 15px; border: 1px solid var(--line); border-radius: 16px; background: var(--canvas); }
+.direct-section-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.direct-section-heading > div { display: grid; gap: 3px; }
+.direct-section-heading strong { font-size: 12px; }
+.direct-section-heading span { color: var(--muted); font-size: 9px; }
+.direct-add-contact { display: grid; grid-template-columns: 1fr 1.2fr auto; align-items: end; gap: 8px; margin-top: 13px; padding: 11px; border: 1px solid var(--line); border-radius: 13px; background: var(--surface); }
+.direct-add-contact .field { margin: 0; }
+.direct-contact-search { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding: 0 11px; min-height: 38px; border: 1px solid var(--line); border-radius: 11px; color: var(--muted); background: var(--surface); }
+.direct-contact-search input { width: 100%; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: 11px; }
+.direct-contact-list { display: grid; gap: 6px; max-height: 204px; margin-top: 8px; overflow-y: auto; }
+.direct-contact-row { display: grid; grid-template-columns: 22px 31px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 49px; padding: 7px 9px; border: 1px solid transparent; border-radius: 11px; color: var(--ink); background: transparent; text-align: left; }
+.direct-contact-row:hover, .direct-contact-row.is-selected { border-color: #b9ddd1; background: color-mix(in srgb, var(--mint) 58%, var(--surface)); }
+.direct-contact-check { display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid #cad4d0; border-radius: 7px; color: #fff; background: var(--surface); }
+.direct-contact-row.is-selected .direct-contact-check { border-color: var(--mint-text); background: var(--mint-text); }
+.direct-contact-row > span:nth-child(3) { display: grid; gap: 2px; min-width: 0; }
+.direct-contact-row strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
+.direct-contact-row small { color: var(--muted); font-size: 8px; }
+.direct-contact-row i { padding: 4px 6px; border-radius: 999px; color: var(--muted); background: var(--surface); font-size: 6px; font-style: normal; font-weight: 800; letter-spacing: .4px; }
+.direct-contact-row i.is-registered { color: var(--mint-text); background: var(--mint); }
+.direct-contact-empty { padding: 17px 8px; color: var(--muted); font-size: 9px; text-align: center; }
+.direct-expense-fields { margin-top: 0; }
+.direct-values-list { margin-top: 9px; }
+
+.contacts-hub { margin-top: 24px; }
+.contacts-hub__header { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin-bottom: 15px; }
+.contacts-hub__header h2 { margin-top: 3px; font-size: 21px; }
+.contacts-hub__header p { margin-top: 5px; color: var(--muted); font-size: 10px; }
+.contact-add-form { margin-bottom: 16px; padding: 17px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: var(--shadow); }
+.contact-add-form > div:first-child { display: flex; align-items: center; gap: 11px; }
+.contact-add-form > div:first-child > div { display: grid; gap: 3px; }
+.contact-add-form h3 { font-size: 13px; }
+.contact-add-form p { color: var(--muted); font-size: 9px; }
+.contact-add-form__icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 13px; color: var(--mint-text); background: var(--mint); }
+.contact-add-form__fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.contact-add-form__actions { display: flex; gap: 8px; margin-top: 13px; }
+.contact-notice { margin-bottom: 14px; }
+.contact-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(265px, 1fr)); gap: 11px; }
+.contact-card { display: flex; flex-direction: column; gap: 12px; min-height: 164px; padding: 15px; border: 1px solid var(--line); border-radius: 16px; background: color-mix(in srgb, var(--surface) 94%, transparent); box-shadow: 0 7px 24px rgb(20 55 49 / 5%); }
+.contact-card__identity { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; align-items: center; gap: 9px; }
+.contact-card__avatar { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 13px; color: #fff; background: var(--forest-2); font-size: 9px; font-weight: 800; }
+.contact-card__identity > span:nth-child(2) { display: grid; gap: 2px; min-width: 0; }
+.contact-card__identity strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.contact-card__identity small { color: var(--muted); font-size: 8px; }
+.contact-card__identity i { display: inline-flex; align-items: center; gap: 4px; padding: 5px 7px; border-radius: 999px; color: var(--muted); background: var(--canvas); font-size: 7px; font-style: normal; font-weight: 800; }
+.contact-card__identity i.is-registered { color: var(--mint-text); background: var(--mint); }
+.contact-card > p { color: var(--muted); font-size: 9px; line-height: 1.5; }
+.contact-card__actions { display: grid; grid-template-columns: 1fr auto; gap: 7px; margin-top: auto; }
+
+[data-theme='dark'] .activity-totals,
+[data-theme='dark'] .direct-people-section,
+[data-theme='dark'] .direct-add-contact,
+[data-theme='dark'] .direct-contact-search,
+[data-theme='dark'] .contact-add-form,
+[data-theme='dark'] .contact-card { background: color-mix(in srgb, var(--surface) 92%, transparent); border-color: var(--line); }
+[data-theme='dark'] .activity-totals > div > div { background: var(--surface-raised); }
+[data-theme='dark'] .direct-contact-row:hover,
+[data-theme='dark'] .direct-contact-row.is-selected { background: color-mix(in srgb, var(--mint) 22%, var(--surface-raised)); }
+
+@media (max-width: 680px) {
+  .activity-hero { align-items: center; gap: 12px; }
+  .activity-hero > div:first-child { gap: 10px; }
+  .activity-hero .page-hero__icon { flex-basis: 42px; height: 42px; border-radius: 14px; }
+  .activity-hero h1 { font-size: 21px; letter-spacing: -.75px; }
+  .activity-hero p { max-width: 205px; font-size: 9px; line-height: 1.45; }
+  .activity-settings-button { min-width: auto !important; padding-inline: 10px !important; font-size: 9px; }
+  .activity-toolbar { gap: 8px; margin: 15px 0 9px; }
+  .activity-totals { padding: 13px; }
+  .activity-totals > div { grid-template-columns: 1fr 1fr; }
+  .welcome-actions .direct-split-action { display: inline-flex; }
+  .welcome-actions { flex-wrap: wrap; justify-content: flex-end; }
+  .direct-expense-modal { padding: 17px; }
+  .direct-section-heading { align-items: flex-start; }
+  .direct-section-heading > .button { min-width: 42px; padding-inline: 9px; font-size: 0; }
+  .direct-section-heading > .button svg { margin: 0; }
+  .direct-add-contact { grid-template-columns: 1fr; }
+  .direct-add-contact > .button { width: 100%; }
+  .direct-contact-row { grid-template-columns: 22px 31px minmax(0, 1fr); }
+  .direct-contact-row > i { grid-column: 3; justify-self: start; }
+  .contacts-hub__header { align-items: flex-start; }
+  .contacts-hub__header > .button { min-width: 42px; padding-inline: 10px; font-size: 0; }
+  .contacts-hub__header > .button svg { margin: 0; }
+  .contact-add-form__fields { grid-template-columns: 1fr; }
+  .contact-card-grid { grid-template-columns: 1fr; }
+}

@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import {
+  BadgeCheck,
   Calendar,
   Check,
   CheckCircle,
@@ -9,6 +10,7 @@ import {
   Phone,
   Plus,
   Receipt,
+  ReceiptText,
   UserPlus,
   Users,
 } from 'lucide-react'
@@ -16,14 +18,16 @@ import type { Contact, MoneyRequest, UpcomingBill } from '../domain/types'
 import { api } from '../lib/api'
 import { formatMoney } from '../domain/money'
 import { recordRum } from '../lib/rum'
+import { isValidMsisdn, mergeContacts, normalizeMsisdn, readLocalContacts, saveLocalContacts } from '../lib/directSplits'
 
 interface PayLendPageProps {
   topbar: ReactNode
+  onSplitWithContact: (contact: Contact) => void
 }
 
 type TabType = 'bills' | 'requests' | 'contacts'
 
-export function PayLendPage({ topbar }: PayLendPageProps) {
+export function PayLendPage({ topbar, onSplitWithContact }: PayLendPageProps) {
   const [activeTab, setActiveTab] = useState<TabType>('bills')
   const [bills, setBills] = useState<UpcomingBill[]>([])
   const [requests, setRequests] = useState<MoneyRequest[]>([])
@@ -46,6 +50,8 @@ export function PayLendPage({ topbar }: PayLendPageProps) {
   const [showAddContact, setShowAddContact] = useState(false)
   const [contactName, setContactName] = useState('')
   const [contactMsisdn, setContactMsisdn] = useState('')
+  const [contactNotice, setContactNotice] = useState('')
+  const [contactError, setContactError] = useState('')
 
   useEffect(() => {
     recordRum('view_pay_lend_page', '/pay', { tab: activeTab })
@@ -63,7 +69,9 @@ export function PayLendPage({ topbar }: PayLendPageProps) {
         setRequests(fetched || [])
       } else if (activeTab === 'contacts') {
         const fetched = await api.contacts.list()
-        setContacts(fetched || [])
+        const merged = mergeContacts(fetched || [], readLocalContacts())
+        setContacts(merged)
+        saveLocalContacts(merged)
       }
     } catch {
       // If backend is not connected, use localStorage mockup so UI remains interactive
@@ -73,8 +81,7 @@ export function PayLendPage({ topbar }: PayLendPageProps) {
       const savedReqs = localStorage.getItem('fairshare-requests-v1')
       if (savedReqs) setRequests(JSON.parse(savedReqs))
 
-      const savedContacts = localStorage.getItem('fairshare-contacts-v1')
-      if (savedContacts) setContacts(JSON.parse(savedContacts))
+      setContacts(readLocalContacts())
     } finally {
       setLoading(false)
     }
@@ -170,24 +177,34 @@ export function PayLendPage({ topbar }: PayLendPageProps) {
 
   async function handleAddContact(e: React.FormEvent) {
     e.preventDefault()
-    if (!contactName.trim() || !contactMsisdn.trim()) return
+    setContactError('')
+    setContactNotice('')
+    const name = contactName.trim()
+    const msisdn = normalizeMsisdn(contactMsisdn)
+    if (name.length < 2) return setContactError('Enter the contact’s name.')
+    if (!isValidMsisdn(msisdn)) return setContactError('Enter a valid phone number with country code.')
 
     const newContact: Contact = {
       id: crypto.randomUUID(),
-      userId: 'u-you',
-      name: contactName.trim(),
-      msisdn: contactMsisdn.trim(),
+      name,
+      msisdn,
       addedAt: new Date().toISOString(),
+      isRegisteredUser: false,
     }
 
+    let saved = newContact
     try {
-      const created = await api.contacts.add({ name: newContact.name, msisdn: newContact.msisdn })
-      setContacts([created, ...contacts])
+      saved = await api.contacts.add({ name, msisdn })
     } catch {
-      const updated = [newContact, ...contacts]
-      setContacts(updated)
-      localStorage.setItem('fairshare-contacts-v1', JSON.stringify(updated))
+      // Keep a usable phone-only contact when the API is temporarily unavailable.
     }
+
+    const updated = mergeContacts(contacts, [saved])
+    setContacts(updated)
+    saveLocalContacts(updated)
+    setContactNotice(saved.isRegisteredUser
+      ? `${saved.name} already uses Fairshare. You can add them directly to a split.`
+      : `${saved.name} is saved as a phone contact and can receive WhatsApp reminders.`)
 
     setContactName('')
     setContactMsisdn('')
@@ -480,52 +497,52 @@ export function PayLendPage({ topbar }: PayLendPageProps) {
 
         {/* TAB 3: CONTACTS & MSISDN PHONE DISCOVERY */}
         {activeTab === 'contacts' && (
-          <section style={{ marginTop: '1.5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <section className="contacts-hub">
+            <div className="contacts-hub__header">
               <div>
-                <h2>Contacts & Quick Connect (MSISDN)</h2>
-                <p style={{ fontSize: '0.9rem', color: 'var(--ink-subtle)' }}>
-                  Connect with friends using their phone numbers, initiate direct WhatsApp chat, and create group splits.
-                </p>
+                <span className="eyebrow">People</span>
+                <h2>Your Fairshare contacts</h2>
+                <p>Add anyone by phone. We automatically check whether they already have a Fairshare account.</p>
               </div>
               <button className="button button--primary" onClick={() => setShowAddContact(!showAddContact)}>
-                <UserPlus size={16} /> Add phone contact
+                <UserPlus size={16} /> Add contact
               </button>
             </div>
 
             {showAddContact && (
-              <form onSubmit={handleAddContact} style={{ background: 'var(--surface-elevated, #fff)', padding: '1.25rem', borderRadius: '12px', border: '1px solid var(--border)', marginBottom: '1.5rem' }}>
-                <h3>Add a contact by phone number</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
-                  <div>
-                    <label style={{ fontSize: '0.85rem', display: 'block', marginBottom: 4 }}>Full Name</label>
+              <form onSubmit={handleAddContact} className="contact-add-form">
+                <div><span className="contact-add-form__icon"><UserPlus size={20} /></span><div><h3>Add by phone number</h3><p>Registered people will be linked; everyone else stays available as a phone contact.</p></div></div>
+                <div className="contact-add-form__fields">
+                  <label className="field">
+                    <span>Full name</span>
                     <input
                       type="text"
-                      className="text-input"
                       placeholder="e.g. Rohan Verma"
                       value={contactName}
                       onChange={(e) => setContactName(e.target.value)}
                       required
                     />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: '0.85rem', display: 'block', marginBottom: 4 }}>Phone Number (MSISDN)</label>
+                  </label>
+                  <label className="field">
+                    <span>Phone number</span>
                     <input
                       type="tel"
-                      className="text-input"
-                      placeholder="+919876543210"
+                      placeholder="+91 98765 43210"
                       value={contactMsisdn}
                       onChange={(e) => setContactMsisdn(e.target.value)}
                       required
                     />
-                  </div>
+                  </label>
                 </div>
-                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
-                  <button type="submit" className="button button--primary">Save Contact</button>
+                {contactError && <p className="form-error" role="alert">{contactError}</p>}
+                <div className="contact-add-form__actions">
+                  <button type="submit" className="button button--primary">Save & check Fairshare</button>
                   <button type="button" className="button button--ghost" onClick={() => setShowAddContact(false)}>Cancel</button>
                 </div>
               </form>
             )}
+
+            {contactNotice && <p className="auth-alert auth-alert--success contact-notice" role="status"><Check size={15} /> {contactNotice}</p>}
 
             {contacts.length === 0 ? (
               <div className="no-results">
@@ -534,34 +551,22 @@ export function PayLendPage({ topbar }: PayLendPageProps) {
                 <span>Add friends by phone number to easily add them to group splits and send reminders.</span>
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
+              <div className="contact-card-grid">
                 {contacts.map((c) => (
-                  <div
-                    key={c.id}
-                    style={{
-                      padding: '1.25rem',
-                      borderRadius: '12px',
-                      background: 'var(--surface-sunken, rgba(0,0,0,0.02))',
-                      border: '1px solid var(--border)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '0.75rem',
-                    }}
-                  >
-                    <div>
-                      <strong style={{ fontSize: '1.1rem', display: 'block' }}>{c.name}</strong>
-                      <span style={{ fontSize: '0.85rem', color: 'var(--ink-subtle)' }}>{c.msisdn}</span>
+                  <article className="contact-card" key={c.id}>
+                    <div className="contact-card__identity">
+                      <span className="contact-card__avatar">{c.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</span>
+                      <span><strong>{c.name}</strong><small>{c.msisdn}</small></span>
+                      <i className={c.isRegisteredUser ? 'is-registered' : ''}>{c.isRegisteredUser ? <><BadgeCheck size={13} /> On Fairshare</> : <><Phone size={13} /> Phone contact</>}</i>
                     </div>
-                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto' }}>
-                      <button
-                        className="button button--secondary"
-                        style={{ flex: 1, fontSize: '0.85rem' }}
-                        onClick={() => openWhatsApp(c.msisdn, c.name)}
-                      >
+                    <p>{c.isRegisteredUser ? 'Ready for in-app splits and shared updates.' : 'Track their share here and remind them on WhatsApp.'}</p>
+                    <div className="contact-card__actions">
+                      <button className="button button--primary" onClick={() => onSplitWithContact(c)}><ReceiptText size={15} /> Split expense</button>
+                      <button className="button button--secondary" onClick={() => openWhatsApp(c.msisdn, c.name)}>
                         <MessageCircle size={15} /> Chat
                       </button>
                     </div>
-                  </div>
+                  </article>
                 ))}
               </div>
             )}
