@@ -1912,7 +1912,7 @@ h1, h2, .brand { font-family: Manrope, 'DM Sans', sans-serif; }
 .people-hero h1 { font-size: clamp(24px, 3vw, 35px); letter-spacing: -1px; }
 .people-hero p { color: var(--muted); font-size: 10px; }
 .people-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; width: min(450px, 100%); margin-top: 17px; padding: 5px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
-.people-tabs button { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 7px; min-height: 39px; padding: 0 11px; border-radius: 10px; color: var(--muted); background: transparent; text-align: left; font-size: 9px; font-weight: 800; }
+.people-tabs button { display: grid; grid-template-columns: auto auto auto; align-items: center; justify-content: center; gap: 7px; min-height: 39px; padding: 0 11px; border-radius: 10px; color: var(--muted); background: transparent; text-align: center; font-size: 9px; font-weight: 800; }
 .people-tabs button i { display: grid; place-items: center; min-width: 20px; height: 20px; padding-inline: 4px; border-radius: 999px; background: var(--canvas); font-size: 7px; font-style: normal; }
 .people-tabs button.is-active { color: var(--coral); background: var(--coral-soft); }
 .people-loading, .people-error { margin-top: 13px; }
@@ -1987,7 +1987,9 @@ h1, h2, .brand { font-family: Manrope, 'DM Sans', sans-serif; }
   .bills-panel__header { align-items: flex-start; }
   .bills-panel__title p { max-width: 190px; }
   .bills-panel__actions > i { display: none; }
-  .bills-panel__actions .button { width: 42px; min-width: 42px; padding: 0; font-size: 0; }
+  .bills-panel__actions .button { display: grid; place-items: center; width: 42px; min-width: 42px; height: 42px; min-height: 42px; padding: 0; font-size: 0; line-height: 0; }
+  .bills-panel__actions .button > span { display: none; }
+  .bills-panel__actions .button svg { display: block; margin: 0; }
   .bill-form { grid-template-columns: 1fr 1fr; }
   .bill-form .field:first-child { grid-column: 1 / -1; }
   .bill-form > .button { grid-column: 1 / -1; }
@@ -2001,11 +2003,15 @@ h1, h2, .brand { font-family: Manrope, 'DM Sans', sans-serif; }
   .people-hero h1 { font-size: 22px; }
   .people-hero p { max-width: 280px; line-height: 1.45; }
   .people-section > header { align-items: flex-start; }
-  .people-section > header > .button { flex: 0 0 42px; width: 42px; padding: 0; font-size: 0; }
+  .people-section > header > .button { display: grid; place-items: center; flex: 0 0 42px; width: 42px; min-width: 42px; height: 42px; min-height: 42px; padding: 0; font-size: 0; line-height: 0; }
+  .people-section > header > .button > span { display: none; }
+  .people-section > header > .button svg { display: block; margin: 0; }
   .request-form { grid-template-columns: 1fr 1fr; }
   .request-form .field:first-child, .request-form .field:nth-child(2), .request-form > .button { grid-column: 1 / -1; }
   .request-list { grid-template-columns: 1fr; }
-  .contact-header-actions { flex-direction: column; }
-  .contact-header-actions .button { min-width: 42px; padding-inline: 9px; font-size: 0; }
+  .contact-header-actions { flex-direction: column; align-items: center; }
+  .contact-header-actions .button { display: grid; place-items: center; width: 42px; min-width: 42px; height: 42px; min-height: 42px; padding: 0; font-size: 0; line-height: 0; }
+  .contact-header-actions .button > span { display: none; }
+  .contact-header-actions .button svg { display: block; margin: 0; }
   .people-page .contact-card__actions { grid-template-columns: 1fr auto auto; }
 }

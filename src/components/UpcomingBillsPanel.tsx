@@ -113,8 +113,8 @@ export function UpcomingBillsPanel({ currency = 'INR' }: { currency?: string }) 
         </div>
         <div className="bills-panel__actions">
           <i>{pendingCount} upcoming</i>
-          <button className="button button--primary" type="button" onClick={() => { setShowForm((open) => !open); setError('') }}>
-            {showForm ? <X size={16} /> : <Plus size={16} />} {showForm ? 'Close' : 'Add bill'}
+          <button className="button button--primary" type="button" aria-label={showForm ? 'Close bill form' : 'Add bill'} onClick={() => { setShowForm((open) => !open); setError('') }}>
+            {showForm ? <X size={16} /> : <Plus size={16} />}<span>{showForm ? 'Close' : 'Add bill'}</span>
           </button>
         </div>
       </header>
