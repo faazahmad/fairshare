@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { Capacitor } from '@capacitor/core'
+import { App as CapApp } from '@capacitor/app'
 import {
   Apple,
   ArrowLeft,
@@ -42,6 +44,29 @@ export function LoginPage({ notice = '', initialError = '', onCreateAccount }: L
   const [pending, setPending] = useState<string | null>(null)
   const [error, setError] = useState(initialError)
   const [message, setMessage] = useState(notice)
+
+  useEffect(() => {
+    if (initialError) {
+      setError(initialError)
+      setPending(null)
+    }
+  }, [initialError])
+
+  useEffect(() => {
+    let handle: { remove: () => void } | null = null
+    if (Capacitor.isNativePlatform()) {
+      void CapApp.addListener('appStateChange', (state) => {
+        if (state.isActive) {
+          window.setTimeout(() => setPending(null), 1000)
+        }
+      }).then((l) => {
+        handle = l
+      })
+    }
+    return () => {
+      if (handle) void handle.remove()
+    }
+  }, [])
 
   function switchMode(nextMode: AuthMode) {
     setMode(nextMode)

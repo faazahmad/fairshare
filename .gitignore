@@ -27,3 +27,13 @@ pnpm-debug.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+# Android & Gradle artifacts
+android/.gradle/
+android/.gradle_home/
+android/app/build/
+android/build/
+android/local.properties
+.config/
+.local/
+.android/

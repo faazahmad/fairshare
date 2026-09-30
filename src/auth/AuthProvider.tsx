@@ -1,4 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Capacitor, type PluginListenerHandle } from '@capacitor/core'
+import { Browser } from '@capacitor/browser'
+import { App as CapApp } from '@capacitor/app'
 import type { AuthActionResult, AuthProfile, SocialProvider } from './types'
 import { api, ApiError, ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY } from '../lib/api'
 
@@ -58,6 +61,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error('Authentication check timed out.')), ms)),
       ])
 
+    async function handleAuthTokens(accessToken: string, refreshToken: string, provider: AuthProfile['provider']) {
+      localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
+      localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
+      localStorage.removeItem(OAUTH_PROVIDER_KEY)
+      try {
+        const profile = await withTimeout(api.users.getProfile(), 8000)
+        if (mounted) {
+          setUser(profileFromApi(profile, provider))
+          setLoading(false)
+        }
+      } catch (e) {
+        console.warn('Could not fetch user profile with new tokens', e)
+        if (mounted) {
+          setOauthError('Failed to fetch user profile with new tokens.')
+          setLoading(false)
+        }
+      }
+    }
+
     async function initSession() {
       try {
         const params = new URLSearchParams(window.location.search)
@@ -77,20 +99,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         if (accessToken && refreshToken) {
-          localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
-          localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
-          localStorage.removeItem(OAUTH_PROVIDER_KEY)
           window.history.replaceState({}, document.title, '/')
-          try {
-            const profile = await withTimeout(api.users.getProfile(), 8000)
-            if (mounted) {
-              setUser(profileFromApi(profile, provider))
-              setLoading(false)
-            }
-            return
-          } catch (e) {
-            console.warn('Could not fetch user profile with new tokens', e)
-          }
+          await handleAuthTokens(accessToken, refreshToken, provider)
+          return
         }
 
         const storedToken = localStorage.getItem(ACCESS_TOKEN_KEY)
@@ -116,10 +127,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    let appUrlListener: PluginListenerHandle | null = null
+
+    if (Capacitor.isNativePlatform()) {
+      void CapApp.addListener('appUrlOpen', async (data) => {
+        try {
+          await Browser.close()
+        } catch {
+          // Browser may already be closed
+        }
+
+        if (data.url && (data.url.includes('auth/callback') || data.url.includes('access_token'))) {
+          try {
+            const parsedUrl = new URL(data.url)
+            const accessToken = parsedUrl.searchParams.get('access_token')
+            const refreshToken = parsedUrl.searchParams.get('refresh_token')
+            const errorParam = parsedUrl.searchParams.get('error')
+            const pendingProvider = localStorage.getItem(OAUTH_PROVIDER_KEY)
+            const provider = pendingProvider === 'github' || pendingProvider === 'google' ? pendingProvider : 'email'
+
+            if (errorParam) {
+              localStorage.removeItem(OAUTH_PROVIDER_KEY)
+              if (mounted) {
+                setOauthError(decodeURIComponent(errorParam))
+              }
+              return
+            }
+
+            if (accessToken && refreshToken) {
+              await handleAuthTokens(accessToken, refreshToken, provider)
+            }
+          } catch (err) {
+            console.warn('Could not handle native auth redirect deep link', err)
+            if (mounted) {
+              setOauthError('Failed to process mobile login.')
+            }
+          }
+        }
+      }).then((listener) => {
+        appUrlListener = listener
+      })
+    }
+
     void initSession()
     return () => {
       mounted = false
       window.clearTimeout(fallbackTimer)
+      if (appUrlListener) {
+        void appUrlListener.remove()
+      }
     }
   }, [])
 
@@ -165,7 +221,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error('Apple sign-in is coming soon.')
       }
       localStorage.setItem(OAUTH_PROVIDER_KEY, provider)
-      window.location.href = `${API_BASE_URL}/auth/oauth/${provider}`
+      const isNative = Capacitor.isNativePlatform()
+      const targetUrl = `${API_BASE_URL}/auth/oauth/${provider}${isNative ? '?platform=mobile' : ''}`
+      if (isNative) {
+        await Browser.open({ url: targetUrl, windowName: '_self' })
+      } else {
+        window.location.href = targetUrl
+      }
       return {}
     },
 
