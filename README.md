@@ -85,6 +85,20 @@ pnpm test
 pnpm build
 ```
 
+## GitHub release + Vercel deploy automation
+
+This repo includes `.github/workflows/release-and-vercel.yml` to:
+
+- run on pushes to `main`/`master`
+- create a new GitHub release with an auto-generated tag
+- deploy the frontend to Vercel production
+
+Add these repository secrets before using it:
+
+- `VERCEL_TOKEN`
+- `VERCEL_ORG_ID`
+- `VERCEL_PROJECT_ID`
+
 The product research and phased roadmap are in [`docs/PRODUCT_BLUEPRINT.md`](docs/PRODUCT_BLUEPRINT.md).
 The native release process and remaining store requirements are in [`docs/MOBILE_RELEASE.md`](docs/MOBILE_RELEASE.md).
 Real OAuth provider configuration is documented in [`docs/AUTH_SETUP.md`](docs/AUTH_SETUP.md).
