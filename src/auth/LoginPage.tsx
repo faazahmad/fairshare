@@ -4,14 +4,15 @@ import { App as CapApp } from '@capacitor/app'
 import {
   Apple,
   ArrowLeft,
-  ArrowRight,
-  Check,
+  ChevronRight,
   Eye,
   EyeOff,
-  LockKeyhole,
+  Flame,
+  Globe,
+  KeyRound,
   Mail,
-  ReceiptText,
   ShieldCheck,
+  Smartphone,
   Sparkles,
   Users,
   WalletCards,
@@ -22,21 +23,38 @@ import type { SocialProvider } from './types'
 type AuthMode = 'signin' | 'reset'
 
 interface LoginPageProps {
+  nativeExperience?: boolean
   notice?: string
   initialError?: string
   onCreateAccount: () => void
 }
 
-function GitHubMark({ size = 19 }: { size?: number }) {
+function GoogleMark() {
   return (
-    <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 .7a11.5 11.5 0 0 0-3.64 22.41c.58.11.79-.25.79-.56v-2.23c-3.22.7-3.9-1.37-3.9-1.37-.52-1.34-1.28-1.7-1.28-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.03 1.78 2.7 1.27 3.36.97.1-.75.4-1.27.73-1.56-2.57-.3-5.27-1.3-5.27-5.69 0-1.26.45-2.28 1.18-3.09-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.16 1.18a10.9 10.9 0 0 1 5.74 0c2.19-1.49 3.15-1.18 3.15-1.18.63 1.59.24 2.76.12 3.05.74.81 1.18 1.83 1.18 3.09 0 4.4-2.71 5.39-5.29 5.68.42.36.79 1.07.79 2.16v3.2c0 .31.21.68.8.56A11.5 11.5 0 0 0 12 .7Z" />
+    <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
     </svg>
   )
 }
 
-export function LoginPage({ notice = '', initialError = '', onCreateAccount }: LoginPageProps) {
-  const { signInWithEmail, signInWithSocial, sendPasswordReset } = useAuth()
+function GitHubMark({ size = 19 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+    </svg>
+  )
+}
+
+export function LoginPage({
+  nativeExperience = false,
+  notice = '',
+  initialError = '',
+  onCreateAccount,
+}: LoginPageProps) {
+  const { authError, clearAuthError, signInWithEmail, signInWithSocial, sendPasswordReset } = useAuth()
   const [mode, setMode] = useState<AuthMode>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -51,6 +69,13 @@ export function LoginPage({ notice = '', initialError = '', onCreateAccount }: L
       setPending(null)
     }
   }, [initialError])
+
+  useEffect(() => {
+    if (authError) {
+      setError(authError)
+      setPending(null)
+    }
+  }, [authError])
 
   useEffect(() => {
     let handle: { remove: () => void } | null = null
@@ -69,31 +94,36 @@ export function LoginPage({ notice = '', initialError = '', onCreateAccount }: L
   }, [])
 
   function switchMode(nextMode: AuthMode) {
+    clearAuthError()
     setMode(nextMode)
     setError('')
     setMessage('')
-    setPending(null)
   }
 
-  function validateEmail() {
-    if (!/^\S+@\S+\.\S+$/.test(email)) throw new Error('Enter a valid email address.')
+  function handleEmailChange(value: string) {
+    setEmail(value)
+    if (error) setError('')
+  }
+
+  function handlePasswordChange(value: string) {
+    setPassword(value)
+    if (error) setError('')
   }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
+    clearAuthError()
     setError('')
     setMessage('')
     try {
-      validateEmail()
-      if (mode === 'reset') {
+      if (mode === 'signin') {
+        setPending('email')
+        await signInWithEmail(email, password)
+      } else {
         setPending('reset')
-        const result = await sendPasswordReset(email.trim())
-        setMessage(result.message ?? 'Reset instructions sent.')
-        return
+        const result = await sendPasswordReset(email)
+        setMessage(result.message ?? 'Password reset instructions sent.')
       }
-      if (password.length < 8) throw new Error('Password must be at least 8 characters.')
-      setPending('email')
-      await signInWithEmail(email.trim(), password)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Authentication failed. Please try again.')
     } finally {
@@ -102,6 +132,7 @@ export function LoginPage({ notice = '', initialError = '', onCreateAccount }: L
   }
 
   async function social(provider: SocialProvider) {
+    clearAuthError()
     setError('')
     setMessage('')
     setPending(provider)
@@ -116,100 +147,180 @@ export function LoginPage({ notice = '', initialError = '', onCreateAccount }: L
   const busy = pending !== null
 
   return (
-    <main className="auth-page">
+    <main className={`auth-page${nativeExperience ? ' auth-page--native' : ''}`}>
       <section className="auth-story" aria-label="Fairshare product preview">
         <button className="auth-brand" aria-label="Fairshare">
           <span><WalletCards size={24} /></span>
           <strong>fairshare</strong>
         </button>
 
-        <div className="auth-story__copy">
-          <span className="auth-kicker"><Sparkles size={14} /> Shared money, made simple</span>
-          <h1>Spend together.<br />Stay friends.</h1>
-          <p>Track trips, rent, dinners, and everything in between—without awkward spreadsheets or mental maths.</p>
+        <div className="auth-story__lead">
+          <span className="eyebrow">Shared living made simple</span>
+          <h2>Split without the friction.</h2>
+          <p>Equal, percentage, exact shares, and direct splits with live balance settlement.</p>
         </div>
 
         <div className="auth-preview-card">
-          <header><span>🌴</span><div><strong>Goa getaway</strong><small>4 friends · 12 expenses</small></div><i>Settling soon</i></header>
-          <div className="auth-preview-card__balance"><small>Your balance</small><strong>₹10,108.33</strong><span>you get back</span></div>
-          <div className="auth-preview-card__people"><span><i className="preview-avatar violet">MS</i><b>Maya owes you</b></span><strong>₹3,025</strong></div>
-          <div className="auth-preview-card__people"><span><i className="preview-avatar green">KM</i><b>Kabir owes you</b></span><strong>₹3,692</strong></div>
+          <header><span>🔑</span><div><strong>September rent</strong><small>3 housemates · 4 shared bills</small></div><i>Due in 3 days</i></header>
+          <div className="auth-preview-card__balance"><small>Your balance</small><strong>₹8,750.00</strong><span>you get back</span></div>
+          <div className="auth-preview-card__people"><span><i className="preview-avatar violet">AV</i><b>Aanya owes you</b></span><strong>₹5,500</strong></div>
+          <div className="auth-preview-card__people"><span><i className="preview-avatar green">RN</i><b>Rohan owes you</b></span><strong>₹3,250</strong></div>
         </div>
 
         <div className="auth-trust-row">
-          <span><ShieldCheck size={16} /> Secure sessions</span>
-          <span><Users size={16} /> Built for groups</span>
-          <span><ReceiptText size={16} /> Clear audit trail</span>
+          <div><Users size={16} /><span>Direct & group splits</span></div>
+          <div><Globe size={16} /><span>Multi-currency</span></div>
+          <div><ShieldCheck size={16} /><span>Secure sessions</span></div>
+          <div><Smartphone size={16} /><span>Mobile-first</span></div>
         </div>
       </section>
 
-      <section className="auth-form-panel">
-        <div className="auth-form-wrap">
-          <div className="auth-mobile-brand"><span><WalletCards size={20} /></span><strong>fairshare</strong></div>
+      <section className="auth-card-wrapper">
+        <div className="auth-card">
+          <header className="auth-card__header">
+            {mode === 'reset' && (
+              <button
+                type="button"
+                className="auth-back-button"
+                onClick={() => switchMode('signin')}
+                disabled={busy}
+              >
+                <ArrowLeft size={16} />
+                <span>Back to sign in</span>
+              </button>
+            )}
 
-          {mode === 'reset' ? (
-            <header className="auth-heading">
-              <button className="auth-back" type="button" onClick={() => switchMode('signin')}><ArrowLeft size={17} /> Back to sign in</button>
-              <span className="auth-heading__icon"><LockKeyhole size={22} /></span>
-              <h2>Reset your password</h2>
-              <p>Enter the email attached to your account and we’ll send secure reset instructions.</p>
-            </header>
-          ) : (
-            <header className="auth-heading">
-              <span className="eyebrow">Welcome back</span>
-              <h2>Sign in to Fairshare</h2>
-              <p>Your groups and balances are waiting for you.</p>
-            </header>
-          )}
+            <h2>
+              {mode === 'signin' && 'Welcome back'}
+              {mode === 'reset' && 'Reset your password'}
+            </h2>
+            <p>
+              {mode === 'signin' && 'Sign in to access your groups, shared balances, and activity.'}
+              {mode === 'reset' && 'Enter your email address and we will help you recover access.'}
+            </p>
+          </header>
+
+          {message && <div className="auth-status-pill info">{message}</div>}
+          {error && <div className="auth-status-pill error">{error}</div>}
 
           {mode === 'signin' && (
             <>
-              <div className="social-login-grid">
-                <button type="button" disabled={busy} onClick={() => void social('google')}>
-                  <span className="google-mark">G</span>
-                  <strong>{pending === 'google' ? 'Connecting…' : 'Continue with Google'}</strong>
+              <div className="auth-social-buttons">
+                <button
+                  type="button"
+                  className="auth-social-button auth-social-button--google"
+                  onClick={() => void social('google')}
+                  disabled={busy}
+                >
+                  <GoogleMark />
+                  <span>{pending === 'google' ? 'Redirecting…' : 'Continue with Google'}</span>
                 </button>
-                <button type="button" disabled={busy} onClick={() => void social('github')}>
+                <button
+                  type="button"
+                  className="auth-social-button auth-social-button--github"
+                  onClick={() => void social('github')}
+                  disabled={busy}
+                >
                   <GitHubMark />
-                  <strong>{pending === 'github' ? 'Connecting…' : 'Continue with GitHub'}</strong>
+                  <span>{pending === 'github' ? 'Redirecting…' : 'Continue with GitHub'}</span>
+                </button>
+                <button
+                  type="button"
+                  className="auth-social-button auth-social-button--apple"
+                  onClick={() => void social('apple')}
+                  disabled={busy}
+                >
+                  <Apple size={18} />
+                  <span>{pending === 'apple' ? 'Redirecting…' : 'Continue with Apple'}</span>
                 </button>
               </div>
-              <button className="github-login coming-soon-login" type="button" disabled aria-disabled="true" title="Apple sign-in is coming soon"><Apple size={19} fill="currentColor" /><span>Apple sign-in · Coming soon</span></button>
-              <div className="auth-divider"><span>or continue with email</span></div>
+
+              <div className="auth-divider">
+                <span>or continue with email</span>
+              </div>
             </>
           )}
 
-          <form className="auth-form" onSubmit={submit} noValidate>
-            <label className="auth-field">
+          <form className="auth-form" onSubmit={(e) => void submit(e)}>
+            <label className="field">
               <span>Email address</span>
-              <div><Mail size={17} /><input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></div>
+              <div className="field-input-wrapper">
+                <Mail size={16} className="field-icon" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => handleEmailChange(e.target.value)}
+                  placeholder="name@example.com"
+                  autoComplete="email"
+                  required
+                  disabled={busy}
+                />
+              </div>
             </label>
 
             {mode === 'signin' && (
-              <label className="auth-field">
-                <span>Password</span>
-                <div><LockKeyhole size={17} /><input type={showPassword ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters" /><button type="button" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>
+              <label className="field">
+                <span className="field-label-row">
+                  <span>Password</span>
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => switchMode('reset')}
+                    disabled={busy}
+                  >
+                    Forgot password?
+                  </button>
+                </span>
+                <div className="field-input-wrapper">
+                  <KeyRound size={16} className="field-icon" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => handlePasswordChange(e.target.value)}
+                    placeholder="Enter your password"
+                    autoComplete="current-password"
+                    required
+                    disabled={busy}
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </label>
             )}
 
-            {mode === 'signin' && (
-              <div className="auth-options auth-options--end">
-                <button type="button" onClick={() => switchMode('reset')}>Forgot password?</button>
-              </div>
-            )}
-
-            {error && <p className="auth-alert auth-alert--error" role="alert">{error}</p>}
-            {message && <p className="auth-alert auth-alert--success" role="status"><Check size={15} /> {message}</p>}
-
-            <button className="auth-submit" type="submit" disabled={busy}>
-              <span>{pending === 'email' || pending === 'reset' ? 'Please wait…' : mode === 'signin' ? 'Sign in securely' : 'Send reset link'}</span>
-              <ArrowRight size={18} />
+            <button
+              type="submit"
+              className="button button--primary auth-submit"
+              disabled={busy}
+            >
+              <span>
+                {mode === 'signin' && (pending === 'email' ? 'Signing in…' : 'Sign in')}
+                {mode === 'reset' && (pending === 'reset' ? 'Sending reset link…' : 'Send reset link')}
+              </span>
+              <ChevronRight size={17} />
             </button>
           </form>
 
-          {mode === 'signin' && <p className="auth-switch">New to Fairshare? <button type="button" onClick={onCreateAccount}>Create an account</button></p>}
-
-          <footer className="auth-footer"><ShieldCheck size={14} /> Your credentials are transmitted securely and never stored by Fairshare.</footer>
+          {mode === 'signin' && (
+            <footer className="auth-card__footer">
+              <span>Do not have an account?</span>
+              <button
+                type="button"
+                className="link-button strong"
+                onClick={onCreateAccount}
+                disabled={busy}
+              >
+                Create an account
+              </button>
+            </footer>
+          )}
         </div>
       </section>
     </main>

@@ -7,11 +7,14 @@ import { api, ApiError, ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY } from '../lib/api'
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1').replace(/\/$/, '')
 const OAUTH_PROVIDER_KEY = 'fairshare-oauth-provider'
+const AUTH_CHECK_TIMEOUT_MS = 10_000
 
 interface AuthContextValue {
   user: AuthProfile | null
   loading: boolean
+  authError: string | null
   oauthError: string | null
+  clearAuthError: () => void
   clearOAuthError: () => void
   signInWithEmail: (email: string, password: string) => Promise<AuthActionResult>
   signUpWithEmail: (name: string, email: string, password: string, phone?: string) => Promise<AuthActionResult>
@@ -44,29 +47,63 @@ function profileFromApi(
   }
 }
 
+function callbackParameters(): URLSearchParams {
+  const parameters = new URLSearchParams(window.location.search)
+  const hashParameters = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+  hashParameters.forEach((value, key) => parameters.set(key, value))
+  return parameters
+}
+
+function clearCallbackUrl(): void {
+  window.history.replaceState({}, document.title, '/')
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs = AUTH_CHECK_TIMEOUT_MS): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error('Authentication check timed out.')), timeoutMs)
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer)
+        resolve(value)
+      },
+      (error: unknown) => {
+        window.clearTimeout(timer)
+        reject(error)
+      },
+    )
+  })
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthProfile | null>(null)
   const [loading, setLoading] = useState(true)
-  const [oauthError, setOauthError] = useState<string | null>(null)
+  const [authError, setAuthError] = useState<string | null>(null)
 
   useEffect(() => {
     let mounted = true
-    const fallbackTimer = window.setTimeout(() => {
-      if (mounted) setLoading(false)
-    }, 8000)
+    const initialParameters = callbackParameters()
+    const expectsSession =
+      initialParameters.has('access_token') ||
+      initialParameters.has('refresh_token') ||
+      initialParameters.has('error') ||
+      initialParameters.has('error_description') ||
+      Boolean(localStorage.getItem(ACCESS_TOKEN_KEY))
 
-    const withTimeout = <T,>(promise: Promise<T>, ms = 8000): Promise<T> =>
-      Promise.race([
-        promise,
-        new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error('Authentication check timed out.')), ms)),
-      ])
+    const fallbackTimer = window.setTimeout(() => {
+      if (!mounted) return
+      if (expectsSession) {
+        setAuthError('Sign-in took too long. Check that the backend is running, then try again.')
+      }
+      setLoading(false)
+    }, AUTH_CHECK_TIMEOUT_MS + 1_000)
 
     async function handleAuthTokens(accessToken: string, refreshToken: string, provider: AuthProfile['provider']) {
       localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
       localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
       localStorage.removeItem(OAUTH_PROVIDER_KEY)
+      clearCallbackUrl()
       try {
-        const profile = await withTimeout(api.users.getProfile(), 8000)
+        const profile = await withTimeout(api.users.getProfile())
         if (mounted) {
           setUser(profileFromApi(profile, provider))
           setLoading(false)
@@ -74,32 +111,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (e) {
         console.warn('Could not fetch user profile with new tokens', e)
         if (mounted) {
-          setOauthError('Failed to fetch user profile with new tokens.')
+          setAuthError('Failed to fetch user profile with new tokens.')
           setLoading(false)
         }
       }
     }
 
     async function initSession() {
-      try {
-        const params = new URLSearchParams(window.location.search)
-        const accessToken = params.get('access_token')
-        const refreshToken = params.get('refresh_token')
-        const errorParam = params.get('error')
-        const pendingProvider = localStorage.getItem(OAUTH_PROVIDER_KEY)
-        const provider = pendingProvider === 'github' || pendingProvider === 'google' ? pendingProvider : 'email'
+      const parameters = callbackParameters()
+      const accessToken = parameters.get('access_token')
+      const refreshToken = parameters.get('refresh_token')
+      const oauthError = parameters.get('error_description') ?? parameters.get('error')
+      const hasCallback =
+        parameters.has('access_token') ||
+        parameters.has('refresh_token') ||
+        parameters.has('error') ||
+        parameters.has('error_description')
+      const pendingProvider = localStorage.getItem(OAUTH_PROVIDER_KEY)
+      const provider = pendingProvider === 'github' || pendingProvider === 'google' ? pendingProvider : 'email'
 
-        if (errorParam) {
+      try {
+        if (oauthError) {
           localStorage.removeItem(OAUTH_PROVIDER_KEY)
-          window.history.replaceState({}, document.title, '/')
-          if (mounted) {
-            setOauthError(errorParam)
-          }
-          return
+          clearCallbackUrl()
+          throw new Error(decodeURIComponent(oauthError))
+        }
+
+        if (hasCallback && (!accessToken || !refreshToken)) {
+          clearCallbackUrl()
+          throw new Error('The sign-in provider returned an incomplete session. Please try again.')
         }
 
         if (accessToken && refreshToken) {
-          window.history.replaceState({}, document.title, '/')
           await handleAuthTokens(accessToken, refreshToken, provider)
           return
         }
@@ -107,14 +150,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const storedToken = localStorage.getItem(ACCESS_TOKEN_KEY)
         if (storedToken) {
           try {
-            const profile = await withTimeout(api.users.getProfile(), 8000)
-            if (mounted) {
-              setUser(profileFromApi(profile))
-            }
-          } catch (err) {
-            console.warn('Could not restore the authentication session from storage.', err)
-            // Only remove stored tokens if server explicitly rejected with 401 Unauthorized
-            if (err instanceof ApiError && err.status === 401) {
+            const profile = await withTimeout(api.users.getProfile())
+            if (mounted) setUser(profileFromApi(profile))
+          } catch (error) {
+            console.warn('Could not restore the authentication session from storage.', error)
+            if (error instanceof ApiError && error.status === 401) {
               localStorage.removeItem(ACCESS_TOKEN_KEY)
               localStorage.removeItem(REFRESH_TOKEN_KEY)
             }
@@ -122,7 +162,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch (caught) {
         console.warn('Could not restore the authentication session.', caught)
+        if (mounted) setAuthError(friendlyError(caught).message)
       } finally {
+        window.clearTimeout(fallbackTimer)
         if (mounted) setLoading(false)
       }
     }
@@ -142,14 +184,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const parsedUrl = new URL(data.url)
             const accessToken = parsedUrl.searchParams.get('access_token')
             const refreshToken = parsedUrl.searchParams.get('refresh_token')
-            const errorParam = parsedUrl.searchParams.get('error')
+            const errorParam = parsedUrl.searchParams.get('error_description') ?? parsedUrl.searchParams.get('error')
             const pendingProvider = localStorage.getItem(OAUTH_PROVIDER_KEY)
             const provider = pendingProvider === 'github' || pendingProvider === 'google' ? pendingProvider : 'email'
 
             if (errorParam) {
               localStorage.removeItem(OAUTH_PROVIDER_KEY)
               if (mounted) {
-                setOauthError(decodeURIComponent(errorParam))
+                setAuthError(decodeURIComponent(errorParam))
               }
               return
             }
@@ -160,7 +202,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } catch (err) {
             console.warn('Could not handle native auth redirect deep link', err)
             if (mounted) {
-              setOauthError('Failed to process mobile login.')
+              setAuthError('Failed to process mobile login.')
             }
           }
         }
@@ -182,12 +224,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthContextValue>(() => ({
     user,
     loading,
-    oauthError,
+    authError,
+    oauthError: authError,
+    clearAuthError() {
+      setAuthError(null)
+    },
     clearOAuthError() {
-      setOauthError(null)
+      setAuthError(null)
     },
 
     async signInWithEmail(email, password) {
+      setAuthError(null)
       try {
         const response = await api.auth.login({ email, password })
         localStorage.setItem(ACCESS_TOKEN_KEY, response.accessToken)
@@ -201,6 +248,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
 
     async signUpWithEmail(name, email, password, phone) {
+      setAuthError(null)
       try {
         const response = await api.auth.register({ name, email, password, phone })
         localStorage.setItem(ACCESS_TOKEN_KEY, response.accessToken)
@@ -217,6 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
 
     async signInWithSocial(provider) {
+      setAuthError(null)
       if (provider !== 'google' && provider !== 'github') {
         throw new Error('Apple sign-in is coming soon.')
       }
@@ -226,7 +275,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (isNative) {
         await Browser.open({ url: targetUrl, windowName: '_self' })
       } else {
-        window.location.href = targetUrl
+        window.location.assign(targetUrl)
       }
       return {}
     },
@@ -247,13 +296,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem(ACCESS_TOKEN_KEY)
       localStorage.removeItem(REFRESH_TOKEN_KEY)
       localStorage.removeItem(OAUTH_PROVIDER_KEY)
+      setAuthError(null)
       setUser(null)
     },
 
     updateUser(updates) {
       setUser((current) => current ? { ...current, ...updates } : null)
     },
-  }), [loading, user, oauthError])
+  }), [authError, loading, user])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

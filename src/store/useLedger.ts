@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Expense, Group, LedgerState, Payment, User } from '../domain/types'
 import { api } from '../lib/api'
+import { DIRECT_SPLIT_GROUP_ID } from '../lib/directSplits'
 
 const STORAGE_KEY = 'fairshare-ledger-v1'
 
@@ -22,22 +23,21 @@ function computeInitials(name?: string): string {
     .join('')
 }
 
-export function useLedger() {
-  const [state, setState] = useState<LedgerState>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        // Cleanse old demo user data if present
-        if (parsed?.currentUserId && parsed.currentUserId !== 'u-you') {
-          return parsed as LedgerState
-        }
-      }
-    } catch {
-      // Ignore parse errors
+function readStoredLedger(): LedgerState {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved) {
+      const parsed = JSON.parse(saved) as LedgerState
+      if (parsed?.currentUserId && parsed.currentUserId !== 'u-you') return parsed
     }
-    return emptyState
-  })
+  } catch {
+    // Ignore parse errors and start from a clean state.
+  }
+  return emptyState
+}
+
+export function useLedger() {
+  const [state, setState] = useState<LedgerState>(readStoredLedger)
 
   const [loading, setLoading] = useState(true)
 
@@ -118,7 +118,21 @@ export function useLedger() {
           }
         }
 
-        const expenses: Expense[] = expensesResult || []
+        const stored = readStoredLedger()
+        const localDirectExpenses = stored.expenses.filter((expense) => expense.groupId === DIRECT_SPLIT_GROUP_ID)
+        const directParticipantIds = new Set(localDirectExpenses.flatMap((expense) => [
+          expense.createdBy,
+          ...expense.payers.map((payer) => payer.userId),
+          ...expense.shares.map((share) => share.userId),
+        ]))
+        for (const localUser of stored.users.filter((user) => directParticipantIds.has(user.id))) {
+          if (!usersMap.has(localUser.id)) usersMap.set(localUser.id, localUser)
+        }
+
+        const expenses: Expense[] = [
+          ...(expensesResult || []),
+          ...localDirectExpenses.filter((local) => !(expensesResult || []).some((remote) => remote.id === local.id)),
+        ]
 
         const paymentsList: Payment[] = []
         for (const res of paymentsResults) {
@@ -164,6 +178,13 @@ export function useLedger() {
   }
 
   async function updateExpense(expense: Expense) {
+    if (expense.groupId === DIRECT_SPLIT_GROUP_ID) {
+      setState((current: LedgerState) => ({
+        ...current,
+        expenses: current.expenses.map((entry) => entry.id === expense.id ? expense : entry),
+      }))
+      return
+    }
     try {
       const updated = await api.expenses.update(expense.id, expense)
       setState((current: LedgerState) => ({
@@ -180,15 +201,30 @@ export function useLedger() {
   }
 
   async function deleteExpense(expenseId: string) {
-    try {
-      await api.expenses.delete(expenseId)
-    } catch (err) {
-      console.warn('API expense delete failed', err)
+    const directExpense = state.expenses.find((expense) => expense.id === expenseId)?.groupId === DIRECT_SPLIT_GROUP_ID
+    if (!directExpense) {
+      try {
+        await api.expenses.delete(expenseId)
+      } catch (err) {
+        console.warn('API expense delete failed', err)
+      }
     }
     setState((current: LedgerState) => ({
       ...current,
       expenses: current.expenses.filter((entry) => entry.id !== expenseId),
     }))
+  }
+
+  function addDirectExpense(expense: Expense, people: User[]) {
+    setState((current: LedgerState) => {
+      const users = new Map(current.users.map((user) => [user.id, user]))
+      for (const person of people) users.set(person.id, { ...users.get(person.id), ...person })
+      return {
+        ...current,
+        users: Array.from(users.values()),
+        expenses: [expense, ...current.expenses.filter((entry) => entry.id !== expense.id)],
+      }
+    })
   }
 
   async function addPayment(payment: Payment) {
@@ -299,6 +335,7 @@ export function useLedger() {
     state,
     loading,
     addExpense,
+    addDirectExpense,
     updateExpense,
     deleteExpense,
     addPayment,

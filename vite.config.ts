@@ -23,6 +23,7 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
+      external: ['@capacitor/contacts'],
       output: {
         manualChunks(id) {
           if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/') || id.includes('node_modules/scheduler/')) {

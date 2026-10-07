@@ -9,3 +9,22 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+declare module '@capacitor/contacts' {
+  export interface ContactPhoneNumber {
+    value?: string
+    pref?: boolean
+  }
+  export interface ContactPayload {
+    displayName?: string
+    name?: {
+      formatted?: string
+      givenName?: string
+      familyName?: string
+    }
+    phoneNumbers?: ContactPhoneNumber[]
+  }
+  export const Contacts: {
+    pickContact: () => Promise<ContactPayload>
+  }
+}

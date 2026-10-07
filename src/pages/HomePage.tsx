@@ -1,30 +1,38 @@
 import type { ReactNode } from 'react'
-import { ArrowRight, CircleDollarSign, HandCoins, Plus, Receipt, Sparkles, TrendingUp, Users } from 'lucide-react'
-import type { LedgerState } from '../domain/types'
+import { ArrowRight, CircleDollarSign, HandCoins, Plus, Receipt, Sparkles, TrendingUp, UserRoundPlus } from 'lucide-react'
+import type { Expense, LedgerState } from '../domain/types'
 import { calculateBalances, formatMoney, simplifyDebts } from '../domain/money'
 import { findUser, groupBalance } from '../lib/ledger'
 import { Avatar } from '../components/Avatar'
 import { formatCurrentMonth, formatDateOnly, formatTodayHeading, greetingForTime, localMonthValue } from '../lib/dates'
 import { useMinuteClock } from '../hooks/useMinuteClock'
 import { localeForLanguage, resolveLanguage, translate, type TranslationKey } from '../lib/i18n'
+import { DIRECT_SPLIT_GROUP_ID } from '../lib/directSplits'
 
 interface HomePageProps {
   state: LedgerState
   onOpenGroup: (groupId: string) => void
+  onOpenExpense: (expense: Expense) => void
   onAddExpense: () => void
+  onAddDirectExpense: () => void
   onCreateGroup: () => void
   topbar: ReactNode
 }
 
-export function HomePage({ state, onOpenGroup, onAddExpense, onCreateGroup, topbar }: HomePageProps) {
+export function HomePage({ state, onOpenGroup, onOpenExpense, onAddExpense, onAddDirectExpense, onCreateGroup, topbar }: HomePageProps) {
   const currentUser = findUser(state.users, state.currentUserId)
   const language = resolveLanguage(currentUser.language)
   const locale = localeForLanguage(language)
   const currency = currentUser.defaultCurrency ?? 'INR'
   const t = (key: TranslationKey, variables?: Record<string, string | number>) => translate(language, key, variables)
   const balances = state.groups.map((group) => ({ group, balance: groupBalance(state, group) }))
-  const totalOwed = balances.reduce((sum, entry) => sum + Math.max(0, entry.balance), 0)
-  const totalOwing = balances.reduce((sum, entry) => sum + Math.max(0, -entry.balance), 0)
+  const directExpenses = state.expenses.filter((expense) => expense.groupId === DIRECT_SPLIT_GROUP_ID)
+  const directUserIds = Array.from(new Set(directExpenses.flatMap((expense) => [...expense.payers.map((payer) => payer.userId), ...expense.shares.map((share) => share.userId)])))
+  const directBalances = calculateBalances(directUserIds, directExpenses, [], currency)
+  const directBalance = directBalances[state.currentUserId] ?? 0
+  const directDebts = simplifyDebts(directBalances)
+  const totalOwed = balances.reduce((sum, entry) => sum + Math.max(0, entry.balance), Math.max(0, directBalance))
+  const totalOwing = balances.reduce((sum, entry) => sum + Math.max(0, -entry.balance), Math.max(0, -directBalance))
   const today = useMinuteClock()
   const monthPrefix = localMonthValue(today)
   const currentMonth = formatCurrentMonth(today, locale)
@@ -47,7 +55,12 @@ export function HomePage({ state, onOpenGroup, onAddExpense, onCreateGroup, topb
         if (debt.fromUserId === state.currentUserId && debt.toUserId === user.id) return pairSum - debt.amount
         return pairSum
       }, 0)
-      return sum + directSettlements
+      const individualSettlements = directDebts.reduce((pairSum, debt) => {
+        if (debt.fromUserId === user.id && debt.toUserId === state.currentUserId) return pairSum + debt.amount
+        if (debt.fromUserId === state.currentUserId && debt.toUserId === user.id) return pairSum - debt.amount
+        return pairSum
+      }, 0)
+      return sum + directSettlements + individualSettlements
     }, 0),
   }))
 
@@ -57,7 +70,7 @@ export function HomePage({ state, onOpenGroup, onAddExpense, onCreateGroup, topb
       <div className="content page-content">
         <section className="welcome-hero">
           <div><span className="eyebrow">{formatTodayHeading(today, locale)}</span><h1>{greetingForTime(today, language)}, {currentUser.name.split(' ')[0]}.</h1><p>{t('sharedMoneyToday')}</p></div>
-          <div className="welcome-actions"><button className="button button--secondary" onClick={onCreateGroup}><Users size={17} /> {t('newGroup')}</button><button className="button button--primary" onClick={onAddExpense}><Plus size={18} /> {t('addExpense')}</button></div>
+          <div className="welcome-actions"><button className="button button--secondary direct-split-action" onClick={onAddDirectExpense}><UserRoundPlus size={17} /> Split with people</button><button className="button button--primary" onClick={onAddExpense}><Plus size={18} /> Group expense</button></div>
         </section>
 
         <section className="home-balance-grid">
@@ -94,7 +107,7 @@ export function HomePage({ state, onOpenGroup, onAddExpense, onCreateGroup, topb
 
         <section className="home-section recent-strip">
           <div className="section-heading"><div><h2>{t('recentExpenses')}</h2><p>{t('latestAdditions')}</p></div></div>
-          <div className="recent-expense-grid">{recentExpenses.map((expense) => { const group = state.groups.find((entry) => entry.id === expense.groupId); return <button key={expense.id} onClick={() => onOpenGroup(expense.groupId)}><span>{group?.emoji ?? '🧾'}</span><span><strong>{expense.description}</strong><small>{group?.name} · {formatDateOnly(expense.occurredAt, { day: 'numeric', month: 'short' }, locale)}</small></span><b>{formatMoney(expense.amount, expense.currency)}</b></button> })}</div>
+          <div className="recent-expense-grid">{recentExpenses.map((expense) => { const group = state.groups.find((entry) => entry.id === expense.groupId); const direct = expense.groupId === DIRECT_SPLIT_GROUP_ID; return <button key={expense.id} onClick={() => direct ? onOpenExpense(expense) : onOpenGroup(expense.groupId)}><span>{direct ? '👤' : group?.emoji ?? '🧾'}</span><span><strong>{expense.description}</strong><small>{direct ? 'Direct split' : group?.name} · {formatDateOnly(expense.occurredAt, { day: 'numeric', month: 'short' }, locale)}</small></span><b>{formatMoney(expense.amount, expense.currency)}</b></button> })}</div>
         </section>
       </div>
     </main>

@@ -5,6 +5,7 @@ import { calculateBalances, formatMoney, simplifyDebts } from '../domain/money'
 import { findUser, shortName } from '../lib/ledger'
 import { Avatar } from '../components/Avatar'
 import { ExpenseRow, PaymentRow } from '../components/LedgerRows'
+import { UpcomingBillsPanel } from '../components/UpcomingBillsPanel'
 
 interface GroupPageProps {
   state: LedgerState
@@ -55,6 +56,8 @@ export function GroupPage({ state, group, query, onAddExpense, onSettle, onManag
             <article className="summary-card"><span className="summary-card__icon neutral"><CircleDollarSign size={20} /></span><div><small>Total group spend</small><strong>{formatMoney(totalSpend, currency)}</strong><span>{groupExpenses.length} shared expenses</span></div></article>
             <article className="summary-card"><span className="summary-card__icon violet"><Sparkles size={20} /></span><div><small>Your share</small><strong>{formatMoney(currentUserSpend, currency)}</strong><span>{totalSpend ? Math.round((currentUserSpend / totalSpend) * 100) : 0}% of group spend</span></div></article>
           </section>
+
+          <UpcomingBillsPanel currency={currency} />
 
           <button className="mobile-smart-card" type="button" onClick={onOpenSmart}>
             <span className="mobile-smart-card__icon"><Sparkles size={21} /></span>

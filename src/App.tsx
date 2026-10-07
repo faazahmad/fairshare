@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import type { Expense, Group } from './domain/types'
+import type { Contact, Expense, Group, User } from './domain/types'
 import type { Debt, Payment } from './domain/types'
 import { useLedger } from './store/useLedger'
 import { usePreferences } from './store/usePreferences'
@@ -8,9 +8,11 @@ import { findUser } from './lib/ledger'
 import { AppNavigation, type AppView } from './components/AppNavigation'
 import { AppTopbar } from './components/AppTopbar'
 import { MobileNavigation } from './components/MobileNavigation'
+import { UpcomingBillsPanel } from './components/UpcomingBillsPanel'
 import { useAuth } from './auth/AuthProvider'
 import { localeForLanguage, resolveLanguage } from './lib/i18n'
 import type { SettingsSection } from './pages/SettingsPage'
+import { DIRECT_SPLIT_GROUP_ID } from './lib/directSplits'
 
 const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })))
 const GroupPage = lazy(() => import('./pages/GroupPage').then((m) => ({ default: m.GroupPage })))
@@ -18,6 +20,7 @@ const ActivityPage = lazy(() => import('./pages/ActivityPage').then((m) => ({ de
 const GroupsPage = lazy(() => import('./pages/GroupsPage').then((m) => ({ default: m.GroupsPage })))
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 const PayLendPage = lazy(() => import('./pages/PayLendPage').then((m) => ({ default: m.PayLendPage })))
+const PeopleHubPage = lazy(() => import('./pages/PeopleHubPage').then((m) => ({ default: m.PeopleHubPage })))
 
 const ExpenseModal = lazy(() => import('./components/ExpenseModal').then((m) => ({ default: m.ExpenseModal })))
 const SettleModal = lazy(() => import('./components/SettleModal').then((m) => ({ default: m.SettleModal })))
@@ -27,14 +30,20 @@ const PaymentDetailModal = lazy(() => import('./components/PaymentDetailModal').
 const ReminderModal = lazy(() => import('./components/ReminderModal').then((m) => ({ default: m.ReminderModal })))
 const PaymentShareModal = lazy(() => import('./components/PaymentShareModal').then((m) => ({ default: m.PaymentShareModal })))
 const SmartAssistantModal = lazy(() => import('./components/SmartAssistantModal').then((m) => ({ default: m.SmartAssistantModal })))
+const DirectExpenseModal = lazy(() => import('./components/DirectExpenseModal').then((m) => ({ default: m.DirectExpenseModal })))
 
 const LAST_SYNCED_AUTH_KEY = 'fairshare-last-synced-auth-id'
 const RECENT_GROUPS_KEY = 'fairshare-recent-groups-v1'
 
-export default function App() {
+interface AppProps {
+  nativeExperience?: boolean
+}
+
+export default function App({ nativeExperience = false }: AppProps) {
   const {
     state,
     addExpense,
+    addDirectExpense,
     updateExpense,
     deleteExpense,
     addPayment,
@@ -52,6 +61,9 @@ export default function App() {
   const [selectedGroupId, setSelectedGroupId] = useState(state.groups[0]?.id ?? '')
   const [expenseOpen, setExpenseOpen] = useState(false)
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null)
+  const [directExpenseOpen, setDirectExpenseOpen] = useState(false)
+  const [editingDirectExpense, setEditingDirectExpense] = useState<Expense | null>(null)
+  const [directInitialContact, setDirectInitialContact] = useState<Contact | null>(null)
   const [settleOpen, setSettleOpen] = useState(false)
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null)
   const [suggestedDebt, setSuggestedDebt] = useState<Debt | null>(null)
@@ -168,10 +180,28 @@ export default function App() {
     setExpenseOpen(true)
   }
 
+  function openDirectExpense(contact: Contact | null = null) {
+    setEditingDirectExpense(null)
+    setDirectInitialContact(contact)
+    setDirectExpenseOpen(true)
+  }
+
   function editExpense(expense: Expense) {
     setSelectedExpense(null)
+    if (expense.groupId === DIRECT_SPLIT_GROUP_ID) {
+      setEditingDirectExpense(expense)
+      setDirectInitialContact(null)
+      setDirectExpenseOpen(true)
+      return
+    }
     setEditingExpense(expense)
     setExpenseOpen(true)
+  }
+
+  function saveDirectExpense(expense: Expense, people: User[]) {
+    addDirectExpense(expense, people)
+    setEditingDirectExpense(null)
+    setDirectInitialContact(null)
   }
 
   function saveExpense(expense: Expense) {
@@ -217,6 +247,7 @@ export default function App() {
       onQueryChange={setQuery}
       onToggleNotifications={() => setNotificationsOpen((open) => !open)}
       onMarkNotificationsRead={() => setNotificationsUnread(false)}
+      onOpenPeopleHub={() => navigate('people')}
       onOpenSettings={openSettings}
     />
   ), [state, currentUser, currentView, query, notificationsOpen, notificationsUnread, notifications])
@@ -233,11 +264,11 @@ export default function App() {
   const activeGroup = group || defaultGroup
 
   return (
-    <div className={`app-shell ${currentView === 'expenses' ? '' : 'app-shell--wide'}`}>
+    <div className={`app-shell ${currentView === 'expenses' ? '' : 'app-shell--wide'}${nativeExperience ? ' app-shell--native' : ''}`}>
       <AppNavigation state={state} currentView={currentView} selectedGroupId={activeGroup.id} recentGroupIds={recentGroupIds} onNavigate={navigate} onSelectGroup={openGroup} onCreateGroup={openCreateGroup} />
 
       <Suspense fallback={<div className="page-content" style={{ minHeight: '60vh', display: 'grid', placeItems: 'center', color: 'var(--muted)' }}>Loading...</div>}>
-        {currentView === 'home' && <HomePage state={state} onOpenGroup={openGroup} onAddExpense={openAddExpense} onCreateGroup={openCreateGroup} topbar={topbar} />}
+        {currentView === 'home' && <HomePage state={state} onOpenGroup={openGroup} onOpenExpense={setSelectedExpense} onAddExpense={openAddExpense} onAddDirectExpense={() => openDirectExpense()} onCreateGroup={openCreateGroup} topbar={topbar} />}
         {currentView === 'expenses' && (
           group ? (
             <GroupPage state={state} group={group} query={query} onAddExpense={openAddExpense} onSettle={() => openSettle()} onManageGroup={() => openManageGroup(group.id)} onOpenExpense={setSelectedExpense} onOpenPayment={setSelectedPayment} onRemind={openReminder} onOpenSmart={() => setSmartOpen(true)} topbar={topbar} />
@@ -255,6 +286,7 @@ export default function App() {
                     </button>
                   </div>
                 </section>
+                <UpcomingBillsPanel currency={currency} />
               </div>
             </main>
           )
@@ -262,6 +294,7 @@ export default function App() {
         {currentView === 'activity' && <ActivityPage state={state} query={query} onOpenExpense={setSelectedExpense} onOpenPayment={setSelectedPayment} onOpenNotificationSettings={() => openSettings('notifications')} topbar={topbar} />}
         {currentView === 'groups' && <GroupsPage state={state} onCreateGroup={openCreateGroup} onOpenGroup={openGroup} onManageGroup={openManageGroup} topbar={topbar} />}
         {currentView === 'pay' && <PayLendPage topbar={topbar} />}
+        {currentView === 'people' && <PeopleHubPage topbar={topbar} currentUserId={state.currentUserId} currency={currency} onSplitWithContact={(contact) => openDirectExpense(contact)} />}
         {currentView === 'settings' && <SettingsPage user={currentUser} activeSection={settingsSection} preferences={preferences} notifications={notifications} security={security} authProvider={authUser?.provider ?? 'email'} onSectionChange={setSettingsSection} onSaveProfile={updateCurrentUser} onUpdatePreferences={updatePreferences} onUpdateNotifications={updateNotifications} onUpdateSecurity={updateSecurity} onResetPassword={async () => (await sendPasswordReset(currentUser.email)).message ?? 'Password reset instructions sent.'} onSignOut={() => void signOut()} topbar={topbar} />}
       </Suspense>
 
@@ -270,6 +303,11 @@ export default function App() {
       {expenseOpen && (
         <Suspense fallback={null}>
           <ExpenseModal open={expenseOpen} expense={editingExpense} group={activeGroup} users={state.users} currentUserId={state.currentUserId} currency={currency} onClose={() => { setExpenseOpen(false); setEditingExpense(null) }} onSave={saveExpense} />
+        </Suspense>
+      )}
+      {directExpenseOpen && (
+        <Suspense fallback={null}>
+          <DirectExpenseModal open={directExpenseOpen} expense={editingDirectExpense} currentUser={currentUser} users={state.users} currency={currency} initialContact={directInitialContact} onClose={() => { setDirectExpenseOpen(false); setEditingDirectExpense(null); setDirectInitialContact(null) }} onSave={saveDirectExpense} />
         </Suspense>
       )}
       {settleOpen && (

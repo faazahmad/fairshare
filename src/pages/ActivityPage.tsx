@@ -52,17 +52,17 @@ export function ActivityPage({
     <main className="main-panel page-panel" id="top">
       {topbar}
       <div className="content page-content">
-        <section className="page-hero">
+        <section className="page-hero activity-hero">
           <div>
             <span className="page-hero__icon"><Activity size={23} /></span>
             <div>
-              <span className="eyebrow">Unified Expense Tracker</span>
-              <h1>All Expenses & Settlements</h1>
-              <p>View individual and group expenses in one unified list with end-of-list total calculation.</p>
+              <span className="eyebrow">Activity</span>
+              <h1>Expenses & settlements</h1>
+              <p>Group and direct splits, in one clear timeline.</p>
             </div>
           </div>
-          <button className="button button--secondary" onClick={onOpenNotificationSettings}>
-            <BellRing size={17} /> Notification settings
+          <button className="button button--secondary activity-settings-button" onClick={onOpenNotificationSettings} aria-label="Notification settings">
+            <BellRing size={17} /> Settings
           </button>
         </section>
 
@@ -114,23 +114,23 @@ export function ActivityPage({
           ))}
 
           {entries.length > 0 && (
-            <div className="balance-hero-card" style={{ marginTop: '2rem', background: 'var(--surface-sunken, rgba(0,0,0,0.03))' }}>
+            <div className="activity-totals">
               <span className="balance-hero-card__label">
                 <Calculator size={16} /> Total Calculation ({entries.length} transactions)
               </span>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '1rem', marginTop: '0.75rem' }}>
+              <div>
                 <div>
-                  <small style={{ display: 'block', color: 'var(--ink-subtle)' }}>Total Gross Expenses</small>
-                  <strong style={{ fontSize: '1.25rem' }}>{formatMoney(totalExpenseAmount, 'INR')}</strong>
+                  <small>Total expenses</small>
+                  <strong>{formatMoney(totalExpenseAmount, 'INR')}</strong>
                 </div>
                 <div>
-                  <small style={{ display: 'block', color: 'var(--ink-subtle)' }}>Your Personal Share</small>
-                  <strong style={{ fontSize: '1.25rem', color: 'var(--forest)' }}>{formatMoney(yourTotalShare, 'INR')}</strong>
+                  <small>Your share</small>
+                  <strong className="positive">{formatMoney(yourTotalShare, 'INR')}</strong>
                 </div>
                 {totalPaymentsAmount > 0 && (
                   <div>
-                    <small style={{ display: 'block', color: 'var(--ink-subtle)' }}>Settlements Recorded</small>
-                    <strong style={{ fontSize: '1.25rem' }}>{formatMoney(totalPaymentsAmount, 'INR')}</strong>
+                    <small>Settled</small>
+                    <strong>{formatMoney(totalPaymentsAmount, 'INR')}</strong>
                   </div>
                 )}
               </div>

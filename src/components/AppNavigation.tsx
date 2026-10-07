@@ -5,7 +5,7 @@ import { groupBalance } from '../lib/ledger'
 import { Avatar } from './Avatar'
 import { resolveLanguage, translate } from '../lib/i18n'
 
-export type AppView = 'home' | 'expenses' | 'activity' | 'groups' | 'pay' | 'settings'
+export type AppView = 'home' | 'expenses' | 'activity' | 'groups' | 'pay' | 'people' | 'settings'
 
 interface AppNavigationProps {
   state: LedgerState

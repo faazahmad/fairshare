@@ -103,10 +103,12 @@ export interface SecurityPreferences {
 
 export interface Contact {
   id: ID
-  userId: ID
+  userId?: ID
+  ownerId?: ID
   contactUserId?: ID
   name: string
   msisdn: string
+  isRegisteredUser?: boolean
   addedAt: string
 }
 
