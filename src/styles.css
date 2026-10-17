@@ -651,7 +651,8 @@ h1, h2, .brand { font-family: Manrope, 'DM Sans', sans-serif; }
 .social-login-grid > button:hover, .github-login:hover { border-color: #b9c9c2; background: #fafcf9; transform: translateY(-1px); }
 .social-login-grid > button:disabled, .github-login:disabled, .auth-submit:disabled { cursor: wait; opacity: .63; transform: none; }
 .social-login-grid strong { font-size: 9px; }
-.google-mark { font-family: Arial, sans-serif; font-size: 17px; font-weight: 800; background: conic-gradient(from -45deg, #4285f4 0 25%, #34a853 0 40%, #fbbc05 0 65%, #ea4335 0 80%, #4285f4 0); background-clip: text; -webkit-background-clip: text; color: transparent; }
+.provider-logo { width: 19px; height: 19px; flex: 0 0 19px; object-fit: contain; }
+.provider-logo--apple { box-sizing: border-box; padding: 2px; border-radius: 5px; background: #fff; }
 .github-login { width: 100%; margin-top: 9px; background: #1f2927; border-color: #1f2927; color: #fff; }
 .github-login:hover { color: #fff; background: #131a18; border-color: #131a18; }
 .github-login span { font-size: 9px; font-weight: 700; }

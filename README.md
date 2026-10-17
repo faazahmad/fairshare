@@ -20,7 +20,8 @@ and does not contain Splitwise source code, branding, or private assets.
 - Debt simplification that preserves every member's net balance
 - Local persistence so the prototype is useful before the API is connected
 - Installable PWA shell and Capacitor Android/iOS packaging foundation
-- Protected login with email/password, Google, Apple, and GitHub auth adapters
+- Protected login with email/password plus backend-driven Google and GitHub OAuth
+- Apple sign-in preview with native provider implementation planned
 - Real web OAuth redirects plus Android/iOS deep-link session handoff (provider credentials required)
 - Persisted currency and language choices that update the ledger, dates, and core navigation
 - Android & iOS platform projects generated with Capacitor (point at a deployed backend via the `.env` file)
@@ -33,15 +34,13 @@ All backend URLs are driven by environment variables — no localhost is hard-co
 
    ```dotenv
    VITE_API_BASE_URL=https://api.yourdomain.com/api/v1
-   VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
-   VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_REPLACE_ME
+   VITE_NATIVE_AUTH_REDIRECT_URL=com.fairshare.app://auth/callback
    ```
 
 2. Configure CORS origins on the backend so the web app and its
    WebSocket channel can reach it from the web AND from the installed Android/iOS builds.
-3. The native auth redirect uses `com.fairshare.app://auth/callback` — add
-   `com.fairshare.app://**` to your Supabase Auth redirect allow list, and ensure your
-   Google OAuth client accepts that callback.
+3. Configure Google and GitHub to return to their backend callback URLs. The backend
+   then sends installed apps to `com.fairshare.app://auth/callback`.
 
 > ⚠️ Vite bakes `.env` values in **at build time** (`pnpm build`), so set
 > `VITE_API_BASE_URL` before every mobile build.

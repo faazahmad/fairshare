@@ -12,9 +12,9 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", exact: "8.5.0"),
-        .package(name: "CapacitorApp", path: "../../../node_modules/.pnpm/@capacitor+app@8.1.1_@capacitor+core@8.5.0/node_modules/@capacitor/app"),
-        .package(name: "CapacitorBrowser", path: "../../../node_modules/.pnpm/@capacitor+browser@8.0.4_@capacitor+core@8.5.0/node_modules/@capacitor/browser"),
-        .package(name: "CapacitorContacts", path: "../../../node_modules/.pnpm/@capacitor+contacts@1.0.1_@capacitor+core@8.5.0/node_modules/@capacitor/contacts")
+        .package(name: "CapacitorApp", path: "..\..\..\node_modules\.pnpm\@capacitor+app@8.1.1_@capacitor+core@8.5.0\node_modules\@capacitor\app"),
+        .package(name: "CapacitorBrowser", path: "..\..\..\node_modules\.pnpm\@capacitor+browser@8.0.4_@capacitor+core@8.5.0\node_modules\@capacitor\browser"),
+        .package(name: "CapacitorContacts", path: "..\..\..\node_modules\.pnpm\@capacitor+contacts@1.0.1_@capacitor+core@8.5.0\node_modules\@capacitor\contacts")
     ],
     targets: [
         .target(

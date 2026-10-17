@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import {
-  Apple,
   ArrowLeft,
   ArrowRight,
   Check,
@@ -88,7 +87,11 @@ export function LoginPage({ nativeExperience = false, notice = '', onCreateAccou
     setMessage('')
     setPending(provider)
     try {
-      await signInWithSocial(provider)
+      const result = await signInWithSocial(provider)
+      if (result.message) {
+        setMessage(result.message)
+        setPending(null)
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Social sign-in could not be started.')
       setPending(null)
@@ -148,7 +151,7 @@ export function LoginPage({ nativeExperience = false, notice = '', onCreateAccou
             <>
               <div className="social-login-grid">
                 <button type="button" disabled={busy} onClick={() => void social('google')}>
-                  <span className="google-mark">G</span>
+                  <img className="provider-logo provider-logo--google" src="/auth/google-logo.webp" alt="" />
                   <strong>{pending === 'google' ? 'Connecting…' : 'Continue with Google'}</strong>
                 </button>
                 <button type="button" disabled={busy} onClick={() => void social('github')}>
@@ -156,7 +159,7 @@ export function LoginPage({ nativeExperience = false, notice = '', onCreateAccou
                   <strong>{pending === 'github' ? 'Connecting…' : 'Continue with GitHub'}</strong>
                 </button>
               </div>
-              <button className="github-login coming-soon-login" type="button" disabled aria-disabled="true" title="Apple sign-in is coming soon"><Apple size={19} fill="currentColor" /><span>Apple sign-in · Coming soon</span></button>
+              <button className="github-login coming-soon-login" type="button" disabled aria-disabled="true" title="Apple sign-in is coming soon"><img className="provider-logo provider-logo--apple" src="/auth/apple-logo.png" alt="" /><span>Apple sign-in · Coming soon</span></button>
               <div className="auth-divider"><span>or continue with email</span></div>
             </>
           )}

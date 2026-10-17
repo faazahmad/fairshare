@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { AuthActionResult, AuthProfile, SocialProvider } from './types'
 import { api, ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY } from '../lib/api'
+import { isNativeAuth, listenForNativeOAuth, startNativeOAuth } from './nativeOAuth'
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1').replace(/\/$/, '')
 const OAUTH_PROVIDER_KEY = 'fairshare-oauth-provider'
@@ -153,6 +154,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  useEffect(() => {
+    let active = true
+    let removeListener: (() => Promise<void>) | undefined
+
+    async function restoreNativeSession(accessToken: string, refreshToken: string) {
+      const pendingProvider = localStorage.getItem(OAUTH_PROVIDER_KEY)
+      const provider = pendingProvider === 'github' || pendingProvider === 'google' ? pendingProvider : 'email'
+
+      localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
+      localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
+      localStorage.removeItem(OAUTH_PROVIDER_KEY)
+      setAuthError(null)
+      setLoading(true)
+
+      try {
+        const profile = await withTimeout(api.users.getProfile())
+        if (active) setUser(profileFromApi(profile, provider))
+      } catch (caught) {
+        localStorage.removeItem(ACCESS_TOKEN_KEY)
+        localStorage.removeItem(REFRESH_TOKEN_KEY)
+        if (active) setAuthError(friendlyError(caught).message)
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    if (isNativeAuth()) {
+      void listenForNativeOAuth(
+        ({ accessToken, refreshToken }) => restoreNativeSession(accessToken, refreshToken),
+        (error) => {
+          localStorage.removeItem(OAUTH_PROVIDER_KEY)
+          if (active) {
+            setAuthError(error.message)
+            setLoading(false)
+          }
+        },
+      ).then((cleanup) => {
+        if (active) removeListener = cleanup
+        else void cleanup()
+      })
+    }
+
+    return () => {
+      active = false
+      if (removeListener) void removeListener()
+    }
+  }, [])
+
   const value = useMemo<AuthContextValue>(() => ({
     user,
     loading,
@@ -195,6 +244,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error('Apple sign-in is coming soon.')
       }
       localStorage.setItem(OAUTH_PROVIDER_KEY, provider)
+      if (isNativeAuth()) {
+        await startNativeOAuth(provider, API_BASE_URL)
+        return { message: 'Complete sign-in in the secure window, then you’ll return to Fairshare.' }
+      }
       window.location.assign(`${API_BASE_URL}/auth/oauth/${provider}`)
       return {}
     },

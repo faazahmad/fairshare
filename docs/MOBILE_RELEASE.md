@@ -51,10 +51,10 @@ keystore, and a Google Play Console account.
    release notes, content ratings, and account-deletion flow.
 7. Run TestFlight and Play closed testing before production review.
 
-The shared code already opens social providers with Capacitor Browser and
-consumes callbacks through Capacitor App. Native project generation is still
-required before the custom URL scheme can be registered in AndroidManifest.xml
-and Info.plist.
+The shared code opens social providers with Capacitor Browser and consumes the
+backend callback through Capacitor App. The custom URL scheme is registered in
+both `AndroidManifest.xml` and `Info.plist`; run `pnpm mobile:sync` after auth or
+plugin changes.
 
 Do not generate signed release binaries using the temporary name or application
 ID. Store identity choices are difficult to change after publication.
