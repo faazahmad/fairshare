@@ -4,12 +4,13 @@ import { Browser } from '@capacitor/browser'
 import { App as CapApp } from '@capacitor/app'
 import type { User } from '../domain/types'
 import { api, ApiError, ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY } from '../lib/api'
-import type { AuthActionResult, AuthProfile, OtpDispatch, OtpPurpose, PhoneVerificationResult, SocialProvider } from './types'
+import type { AuthActionResult, AuthProfile, AuthProviderAvailability, OtpDispatch, OtpPurpose, PhoneVerificationResult, SocialProvider } from './types'
 import { parseNativeOAuthCallback } from './nativeOAuth'
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1').replace(/\/$/, '')
 const OAUTH_PROVIDER_KEY = 'fairshare-oauth-provider'
 const AUTH_CHECK_TIMEOUT_MS = 10_000
+export const WELCOME_SESSION_KEY = 'fairshare-show-welcome'
 
 interface RegistrationPayload {
   firstName: string
@@ -34,6 +35,7 @@ interface AuthContextValue {
   user: AuthProfile | null
   loading: boolean
   authError: string | null
+  providers: AuthProviderAvailability
   oauthError: string | null
   clearAuthError: () => void
   clearOAuthError: () => void
@@ -111,6 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [authError, setAuthError] = useState<string | null>(null)
+  const [providers, setProviders] = useState<AuthProviderAvailability>({ phone: true, google: true, apple: true })
 
   useEffect(() => {
     let mounted = true
@@ -195,6 +198,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     void initSession()
+    void api.auth.providers().then(setProviders).catch(() => {
+      // Keep every option available if the capability check itself is temporarily unreachable.
+    })
     return () => {
       mounted = false
       if (appUrlListener) void appUrlListener.remove()
@@ -205,6 +211,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     loading,
     authError,
+    providers,
     oauthError: authError,
     clearAuthError: () => setAuthError(null),
     clearOAuthError: () => setAuthError(null),
@@ -224,6 +231,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async signInWithSocial(provider) {
       setAuthError(null)
+      if (provider === 'google' && !providers.google) throw new Error('Google sign-in is temporarily unavailable because its server credentials are not configured.')
+      if (provider === 'apple' && !providers.apple) throw new Error('Apple sign-in is not configured yet. Add the Apple Services ID and signing key on the server, then try again.')
       localStorage.setItem(OAUTH_PROVIDER_KEY, provider)
       const native = Capacitor.isNativePlatform()
       const targetUrl = `${API_BASE_URL}/auth/oauth/${provider}${native ? '?platform=mobile' : ''}`
@@ -278,6 +287,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthError(null)
       try {
         const profile = await api.users.completeOnboarding(payload)
+        sessionStorage.setItem(WELCOME_SESSION_KEY, '1')
         setUser(profileFromApi(profile, user?.provider ?? 'email'))
       } catch (caught) {
         throw friendlyError(caught)
@@ -304,6 +314,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem(ACCESS_TOKEN_KEY)
       localStorage.removeItem(REFRESH_TOKEN_KEY)
       localStorage.removeItem(OAUTH_PROVIDER_KEY)
+      sessionStorage.removeItem(WELCOME_SESSION_KEY)
       setAuthError(null)
       setUser(null)
     },
@@ -311,7 +322,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     updateUser(updates) {
       setUser((current) => current ? { ...current, ...updates } : null)
     },
-  }), [authError, loading, user])
+  }), [authError, loading, providers, user])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

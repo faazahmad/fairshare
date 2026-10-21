@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRight, Check, ChevronDown, Phone, ReceiptText, ShieldCh
 import { useAuth } from './AuthProvider'
 import { digitsOnly, INDIA_COUNTRY, PHONE_COUNTRIES, toE164 } from './phoneAuth'
 import type { SocialProvider } from './types'
+import { useOtpCountdown } from './useOtpCountdown'
 
 type LoginView = 'options' | 'phone' | 'otp'
 
@@ -35,7 +36,7 @@ function AppleMark() {
 }
 
 export function LoginPage({ nativeExperience = false, notice = '', initialError = '', onCreateAccount }: LoginPageProps) {
-  const { authError, clearAuthError, requestPhoneOtp, signInWithSocial, verifyPhoneOtp } = useAuth()
+  const { authError, clearAuthError, providers, requestPhoneOtp, signInWithSocial, verifyPhoneOtp } = useAuth()
   const [view, setView] = useState<LoginView>('options')
   const [countryIso, setCountryIso] = useState('IN')
   const [phone, setPhone] = useState('')
@@ -45,6 +46,7 @@ export function LoginPage({ nativeExperience = false, notice = '', initialError 
   const [message, setMessage] = useState(notice)
   const country = useMemo(() => PHONE_COUNTRIES.find((entry) => entry.iso === countryIso) ?? INDIA_COUNTRY, [countryIso])
   const fullPhone = useMemo(() => `${country.dialCode}${phone}`, [country, phone])
+  const otpTimer = useOtpCountdown()
 
   useEffect(() => { if (initialError) setError(initialError) }, [initialError])
   useEffect(() => { if (authError) { setError(authError); setPending(null) } }, [authError])
@@ -78,6 +80,7 @@ export function LoginPage({ nativeExperience = false, notice = '', initialError 
       const e164 = toE164(country, phone)
       setPending('phone')
       const result = await requestPhoneOtp(e164, 'SIGN_IN')
+      otpTimer.start(result.expiresInSeconds)
       setView('otp')
       setMessage(result.devCode ? `Development code: ${result.devCode}` : `We sent a six-digit code to ${result.phone}.`)
     } catch (caught) {
@@ -89,6 +92,7 @@ export function LoginPage({ nativeExperience = false, notice = '', initialError 
     event.preventDefault()
     resetFeedback()
     if (otp.length !== 6) { setError('Enter the complete six-digit code.'); return }
+    if (otpTimer.expired) { setError('This code has expired. Send a new one to continue.'); return }
     try {
       setPending('otp')
       const result = await verifyPhoneOtp(fullPhone, otp, 'SIGN_IN')
@@ -130,8 +134,8 @@ export function LoginPage({ nativeExperience = false, notice = '', initialError 
               <header className="auth-heading auth-entry__heading"><span className="eyebrow">Welcome to Fairshare</span><h2>One login. Everything shared.</h2><p>Choose a secure way to continue.</p></header>
               {(error || message) && <div className="auth-entry__feedback">{error && <p className="auth-alert auth-alert--error" role="alert">{error}</p>}{message && <p className="auth-alert auth-alert--success" role="status"><Check size={15} />{message}</p>}</div>}
               <div className="auth-provider-stack">
-                <button className="auth-provider-button auth-provider-button--google" type="button" disabled={busy} onClick={() => void social('google')}><GoogleMark /><span>{pending === 'google' ? 'Connecting…' : 'Continue with Google'}</span></button>
-                <button className="auth-provider-button auth-provider-button--apple" type="button" disabled={busy} onClick={() => void social('apple')}><AppleMark /><span>{pending === 'apple' ? 'Connecting…' : 'Continue with Apple'}</span></button>
+                <button className="auth-provider-button auth-provider-button--google" type="button" disabled={busy} aria-disabled={!providers.google} title={providers.google ? undefined : 'Google sign-in is not configured'} onClick={() => void social('google')}><GoogleMark /><span>{pending === 'google' ? 'Connecting…' : 'Continue with Google'}</span></button>
+                <button className="auth-provider-button auth-provider-button--apple" type="button" disabled={busy} aria-disabled={!providers.apple} title={providers.apple ? undefined : 'Apple sign-in needs server credentials'} onClick={() => void social('apple')}><AppleMark /><span>{pending === 'apple' ? 'Connecting…' : 'Continue with Apple'}</span></button>
                 <button className="auth-provider-button auth-provider-button--phone" type="button" disabled={busy} onClick={() => { resetFeedback(); setView('phone') }}><Phone size={19} /><span>Continue with mobile number</span><ArrowRight size={18} /></button>
               </div>
               <footer className="auth-footer"><ShieldCheck size={14} /> Secure authentication. Your password is never shared with Google or Apple.</footer>
@@ -159,9 +163,10 @@ export function LoginPage({ nativeExperience = false, notice = '', initialError 
               <header className="auth-heading auth-phone-heading"><button className="auth-back" type="button" onClick={() => { resetFeedback(); setOtp(''); setView('phone') }}><ArrowLeft size={17} /> Change mobile number</button><span className="auth-heading__icon"><ShieldCheck size={22} /></span><h2>Enter your code</h2><p>Six digits were sent to <strong>{fullPhone}</strong>.</p></header>
               <form className="auth-form auth-phone-form" onSubmit={verifyCode}>
                 <label className="auth-field"><span>Verification code</span><div className="auth-otp-input"><input autoFocus aria-label="Six-digit verification code" type="text" inputMode="numeric" autoComplete="one-time-code" placeholder="• • • • • •" value={otp} maxLength={6} onChange={(event) => { setOtp(digitsOnly(event.target.value, 6)); if (error) setError('') }} /></div></label>
+                <p className={`auth-otp-expiry${otpTimer.expired ? ' is-expired' : ''}`} role="status">{otpTimer.expired ? 'Code expired — request a new one below.' : `Code valid for ${otpTimer.formatted}`}</p>
                 {error && <p className="auth-alert auth-alert--error" role="alert">{error}</p>}
                 {message && <p className="auth-alert auth-alert--success" role="status"><Check size={15} />{message}</p>}
-                <button className="auth-submit" type="submit" disabled={busy || otp.length !== 6}><span>{pending === 'otp' ? 'Verifying…' : 'Verify & sign in'}</span><ArrowRight size={18} /></button>
+                <button className="auth-submit" type="submit" disabled={busy || otp.length !== 6 || otpTimer.expired}><span>{pending === 'otp' ? 'Verifying…' : 'Verify & sign in'}</span><ArrowRight size={18} /></button>
               </form>
               <div className="auth-otp-actions"><button type="button" onClick={() => void sendCode()}>Send a new code</button>{error.includes('no Fairshare account') && <button type="button" onClick={() => onCreateAccount(fullPhone)}>Create account</button>}</div>
             </>

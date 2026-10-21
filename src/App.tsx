@@ -9,7 +9,8 @@ import { AppTopbar } from './components/AppTopbar'
 import { getNotificationCount } from './components/NotificationPanel'
 import { MobileNavigation } from './components/MobileNavigation'
 import { UpcomingBillsPanel } from './components/UpcomingBillsPanel'
-import { useAuth } from './auth/AuthProvider'
+import { WelcomeDialog } from './components/WelcomeDialog'
+import { useAuth, WELCOME_SESSION_KEY } from './auth/AuthProvider'
 import { localeForLanguage, resolveLanguage } from './lib/i18n'
 import type { SettingsSection } from './pages/SettingsPage'
 import { DIRECT_SPLIT_GROUP_ID } from './lib/directSplits'
@@ -61,6 +62,7 @@ export default function App({ nativeExperience = false }: AppProps) {
   const { notifications, security, updateNotifications, updateSecurity } = useAccountPreferences()
   const { user: authUser, signOut, sendPasswordReset } = useAuth()
   const [currentView, setCurrentView] = useState<AppView>('home')
+  const [welcomeOpen, setWelcomeOpen] = useState(() => sessionStorage.getItem(WELCOME_SESSION_KEY) === '1')
   const [selectedGroupId, setSelectedGroupId] = useState(state.groups[0]?.id ?? '')
   const [expenseOpen, setExpenseOpen] = useState(false)
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null)
@@ -149,6 +151,11 @@ export default function App({ nativeExperience = false }: AppProps) {
     setNotificationsOpen(false)
     if (view !== 'expenses' && view !== 'activity') setQuery('')
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function closeWelcome() {
+    sessionStorage.removeItem(WELCOME_SESSION_KEY)
+    setWelcomeOpen(false)
   }
 
   function openGroup(groupId: string) {
@@ -332,6 +339,8 @@ export default function App({ nativeExperience = false }: AppProps) {
       </Suspense>
 
       {currentView !== 'profile' && !(currentView === 'chats' && chatThreadOpen) && <MobileNavigation currentView={currentView} language={language} onNavigate={navigate} />}
+
+      {welcomeOpen && currentView === 'home' && <WelcomeDialog name={currentUser.name} onClose={closeWelcome} />}
 
       {expenseOpen && (
         <Suspense fallback={null}>

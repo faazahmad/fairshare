@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { ArrowLeft, ArrowRight, CalendarDays, Check, ChevronDown, KeyRound, Mail, Phone, ShieldCheck, UserRound, WalletCards } from 'lucide-react'
 import { useAuth } from './AuthProvider'
 import { digitsOnly, INDIA_COUNTRY, PHONE_COUNTRIES, toE164 } from './phoneAuth'
+import { useOtpCountdown } from './useOtpCountdown'
 
 type SignUpStep = 'phone' | 'otp' | 'details'
 
@@ -35,6 +36,7 @@ export function CreateAccountFlow({ initialPhone, onBack, onComplete }: CreateAc
   const [message, setMessage] = useState('')
   const country = useMemo(() => PHONE_COUNTRIES.find((entry) => entry.iso === countryIso) ?? INDIA_COUNTRY, [countryIso])
   const fullPhone = useMemo(() => `${country.dialCode}${phone}`, [country, phone])
+  const otpTimer = useOtpCountdown()
 
   function resetFeedback() { setError(''); setMessage('') }
 
@@ -45,6 +47,7 @@ export function CreateAccountFlow({ initialPhone, onBack, onComplete }: CreateAc
       const e164 = toE164(country, phone)
       setPending(true)
       const result = await requestPhoneOtp(e164, 'SIGN_UP')
+      otpTimer.start(result.expiresInSeconds)
       setStep('otp')
       setMessage(result.devCode ? `Development code: ${result.devCode}` : `We sent a six-digit code to ${result.phone}.`)
     } catch (caught) {
@@ -56,6 +59,7 @@ export function CreateAccountFlow({ initialPhone, onBack, onComplete }: CreateAc
     event.preventDefault()
     resetFeedback()
     if (otp.length !== 6) { setError('Enter the complete six-digit code.'); return }
+    if (otpTimer.expired) { setError('This code has expired. Send a new one to continue.'); return }
     try {
       setPending(true)
       const result = await verifyPhoneOtp(fullPhone, otp, 'SIGN_UP')
@@ -117,9 +121,10 @@ export function CreateAccountFlow({ initialPhone, onBack, onComplete }: CreateAc
             <div className="onboarding-hero"><span className="onboarding-icon-badge"><KeyRound size={25} /></span><h2>Verify your number</h2><p>Enter the code sent to <strong>{fullPhone}</strong>.</p></div>
             <form className="onboarding-form" onSubmit={verifyCode}>
               <label className="auth-field"><span>Six-digit code</span><div className="auth-otp-input"><input autoFocus type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={otp} placeholder="• • • • • •" onChange={(event) => setOtp(digitsOnly(event.target.value, 6))} /></div></label>
+              <p className={`auth-otp-expiry${otpTimer.expired ? ' is-expired' : ''}`} role="status">{otpTimer.expired ? 'Code expired — request a new one below.' : `Code valid for ${otpTimer.formatted}`}</p>
               {error && <p className="auth-alert auth-alert--error" role="alert">{error}</p>}
               {message && <p className="auth-alert auth-alert--success" role="status"><Check size={15} />{message}</p>}
-              <button className="auth-submit" type="submit" disabled={pending || otp.length !== 6}><span>{pending ? 'Verifying…' : 'Verify number'}</span><ArrowRight size={18} /></button>
+              <button className="auth-submit" type="submit" disabled={pending || otp.length !== 6 || otpTimer.expired}><span>{pending ? 'Verifying…' : 'Verify number'}</span><ArrowRight size={18} /></button>
               <button className="auth-secondary-action" type="button" disabled={pending} onClick={() => void sendCode()}>Send a new code</button>
             </form>
           </section>

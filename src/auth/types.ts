@@ -1,5 +1,11 @@
 export type SocialProvider = 'google' | 'apple' | 'github'
 
+export interface AuthProviderAvailability {
+  phone: boolean
+  google: boolean
+  apple: boolean
+}
+
 export interface AuthProfile {
   id: string
   email: string

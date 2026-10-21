@@ -105,6 +105,8 @@ async function attemptRefreshToken(refreshToken: string): Promise<boolean> {
 
 export const api = {
   auth: {
+    providers: () => request<{ phone: boolean; google: boolean; apple: boolean }>('/auth/providers'),
+
     sendOtp: (phone: string, purpose: 'SIGN_IN' | 'SIGN_UP') =>
       request<{ phone: string; expiresInSeconds: number; devCode?: string | null }>('/auth/otp/send', {
         method: 'POST',
