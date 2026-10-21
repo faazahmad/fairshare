@@ -9,6 +9,11 @@ export interface User {
   avatarUrl?: string
   phone?: string
   instagramHandle?: string
+  upiId?: string
+  bankAccountName?: string
+  bankAccountNumber?: string
+  bankIfsc?: string
+  paymentQrData?: string
   defaultCurrency?: string
   language?: string
 }
@@ -42,6 +47,9 @@ export interface Expense {
   createdBy: ID
   payers: Allocation[]
   shares: Allocation[]
+  reminderScheduleDays?: 7 | 10 | 15 | 30
+  reminderPayerIds?: ID[]
+  reminderChannels?: NotificationChannel[]
 }
 
 export interface Payment {
@@ -71,6 +79,7 @@ export interface Debt {
 }
 
 export type SplitMode = 'equal' | 'exact' | 'percentage' | 'shares'
+export type NotificationChannel = 'whatsapp' | 'instagram'
 
 export type ThemePreference = 'light' | 'dark' | 'system'
 export type AccentPreference = 'coral' | 'emerald' | 'violet'
@@ -108,7 +117,9 @@ export interface Contact {
   name: string
   msisdn: string
   isRegisteredUser?: boolean
+  favorite?: boolean
   addedAt: string
+  updatedAt?: string
 }
 
 export interface UpcomingBill {
@@ -129,13 +140,72 @@ export interface MoneyRequest {
   id: ID
   groupId?: ID
   fromUserId: ID
-  toUserId: ID
+  toUserId?: ID
+  contactId?: ID
+  payerName?: string
+  payerMsisdn?: string
+  expenseId?: ID
+  reminderIntervalDays?: 7 | 10 | 15 | 30
+  reminderChannels?: NotificationChannel[]
+  payerInstagramId?: string
+  paymentMode?: 'UPI' | 'BANK' | 'QR'
+  paymentInstructions?: string
+  paymentQrData?: string
   currency: string
   amountMinor: number
   description: string
   expiresAt: string
-  status: 'open' | 'settled' | 'expired' | 'cancelled'
+  status: 'open' | 'proof_submitted' | 'settled' | 'expired' | 'cancelled'
+  settlementTransactionId?: string
+  hasSettlementProof?: boolean
+  settlementSubmittedAt?: string
+  settlementVerifiedAt?: string
   createdAt: string
+}
+
+export interface ChatMessage {
+  id: ID
+  senderId: ID
+  recipientId: ID
+  content: string
+  messageType: 'TEXT' | 'EMOJI' | 'STICKER' | 'VOICE'
+  stickerCode?: string
+  voiceDurationMs?: number
+  hasVoice?: boolean
+  createdAt: string
+  readAt?: string
+}
+
+export interface ChatConversation {
+  otherUserId: ID
+  otherUserName: string
+  otherUserAvatarUrl?: string
+  otherUserInitials?: string
+  latestMessage: ChatMessage
+  unreadCount: number
+}
+
+export interface PaymentReminder {
+  id: ID
+  sourceType: 'expense' | 'request'
+  sourceId: ID
+  expenseDescription: string
+  currency: string
+  amountMinor: number
+  payerUserId?: ID
+  payerName: string
+  payerMsisdn: string
+  payerInstagramId?: string
+  paymentMode?: 'UPI' | 'BANK' | 'QR'
+  paymentInstructions?: string
+  channels?: NotificationChannel[]
+  intervalDays: 7 | 10 | 15 | 30
+  status: 'active' | 'paused' | 'settled'
+  nextSendAt: string
+  lastSentAt?: string
+  lastDeliveryStatus?: string
+  createdAt: string
+  updatedAt: string
 }
 
 export type OnboardingStep = 'welcome' | 'profile' | 'contacts' | 'first-group' | 'done'

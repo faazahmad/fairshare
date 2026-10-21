@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CalendarDays, Check, ReceiptText, X } from 'lucide-react'
-import type { Expense, Group, SplitMode, User } from '../domain/types'
+import { BellRing, CalendarDays, Check, ReceiptText, X } from 'lucide-react'
+import type { Expense, Group, NotificationChannel, SplitMode, User } from '../domain/types'
 import {
   currencySymbol, parseMoney,
   splitByPercentages,
@@ -9,7 +9,9 @@ import {
   validateExactSplit,
 } from '../domain/money'
 import { localDateValue } from '../lib/dates'
+import { api } from '../lib/api'
 import { Avatar } from './Avatar'
+import { ReminderChannelPicker } from './ReminderChannelPicker'
 
 interface ExpenseModalProps {
   open: boolean
@@ -49,6 +51,8 @@ export function ExpenseModal({
   const [date, setDate] = useState(localDateValue())
   const [category, setCategory] = useState('General')
   const [notes, setNotes] = useState('')
+  const [reminderDays, setReminderDays] = useState<'' | '7' | '10' | '15' | '30'>('')
+  const [reminderChannels, setReminderChannels] = useState<NotificationChannel[]>(['whatsapp'])
   const [splitMode, setSplitMode] = useState<SplitMode>('equal')
   const [selectedIds, setSelectedIds] = useState<string[]>(group.memberIds)
   const [customValues, setCustomValues] = useState<Record<string, string>>({})
@@ -62,6 +66,8 @@ export function ExpenseModal({
     setDate(expense?.occurredAt ?? localDateValue())
     setCategory(expense?.category ?? 'General')
     setNotes(expense?.notes ?? '')
+    setReminderDays(expense?.reminderScheduleDays ? String(expense.reminderScheduleDays) as typeof reminderDays : '')
+    setReminderChannels(expense?.reminderChannels?.length ? expense.reminderChannels : ['whatsapp'])
     setSplitMode(expense ? 'exact' : 'equal')
     setSelectedIds(expense ? expense.shares.map((share) => share.userId) : group.memberIds)
     setCustomValues(expense
@@ -130,8 +136,9 @@ export function ExpenseModal({
       }
 
       const timestamp = new Date().toISOString()
-      onSave({
-        id: expense?.id ?? crypto.randomUUID(),
+      const expenseId = expense?.id ?? crypto.randomUUID()
+      const nextExpense: Expense = {
+        id: expenseId,
         groupId: expense?.groupId ?? group.id,
         description: description.trim(),
         notes: notes.trim() || undefined,
@@ -143,7 +150,21 @@ export function ExpenseModal({
         createdBy: expense?.createdBy ?? currentUserId,
         payers: [{ userId: payerId, amount: total }],
         shares,
-      })
+        reminderScheduleDays: reminderDays ? Number(reminderDays) as 7 | 10 | 15 | 30 : undefined,
+        reminderPayerIds: reminderDays ? selectedIds.filter((id) => id !== payerId) : undefined,
+        reminderChannels: reminderDays ? reminderChannels : undefined,
+      }
+      onSave(nextExpense)
+      if (reminderDays) {
+        void Promise.allSettled(selectedIds.filter((id) => id !== payerId).map((userId) => {
+          const payer = users.find((user) => user.id === userId)
+          return api.reminders.create({ sourceType: 'expense', sourceId: expenseId, expenseDescription: nextExpense.description,
+            currency: nextExpense.currency, amountMinor: shares.find((share) => share.userId === userId)?.amount ?? total,
+            payerUserId: userId, payerName: payer?.name, payerMsisdn: payer?.phone,
+            channels: reminderChannels,
+            intervalDays: Number(reminderDays) as 7 | 10 | 15 | 30 })
+        }))
+      }
       onClose()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not create this expense.')
@@ -155,7 +176,7 @@ export function ExpenseModal({
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
       <section
-        className="modal expense-modal"
+        className="modal form-modal expense-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="expense-title"
@@ -172,6 +193,7 @@ export function ExpenseModal({
         </header>
 
         <form onSubmit={submit}>
+          <div className="modal__scroll">
           <div className="expense-primary-fields">
             <span className="receipt-mark"><ReceiptText size={28} /></span>
             <label>
@@ -270,8 +292,11 @@ export function ExpenseModal({
             <span>Notes <small>optional</small></span>
             <textarea rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Add context for the group" />
           </label>
+          <section className="reminder-setup"><span className="reminder-setup__icon"><BellRing size={17} /></span><div><strong>Automatic payment reminders</strong><p>Send a private server-side reminder to everyone who owes the payer until settled.</p></div><label><span className="sr-only">Reminder schedule</span><select value={reminderDays} onChange={(event) => setReminderDays(event.target.value as typeof reminderDays)}><option value="">Off</option><option value="7">Every 7 days</option><option value="10">Every 10 days</option><option value="15">Every 15 days</option><option value="30">Every 30 days</option></select></label></section>
+          {reminderDays && <ReminderChannelPicker channels={reminderChannels} onChange={setReminderChannels} />}
 
           {error && <p className="form-error" role="alert">{error}</p>}
+          </div>
 
           <footer className="modal__footer">
             <button className="button button--ghost" type="button" onClick={onClose}>Cancel</button>

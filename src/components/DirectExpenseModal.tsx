@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CalendarDays, Check, Plus, ReceiptText, Search, UserPlus, Users, X } from 'lucide-react'
-import type { Contact, Expense, SplitMode, User } from '../domain/types'
+import { BellRing, CalendarDays, Check, Plus, ReceiptText, UserPlus, Users, X } from 'lucide-react'
+import type { Contact, Expense, NotificationChannel, SplitMode, User } from '../domain/types'
 import {
   currencySymbol,
   parseMoney,
@@ -22,6 +22,8 @@ import {
   saveLocalContacts,
 } from '../lib/directSplits'
 import { Avatar } from './Avatar'
+import { ContactPicker } from './ContactPicker'
+import { ReminderChannelPicker } from './ReminderChannelPicker'
 
 interface DirectExpenseModalProps {
   open: boolean
@@ -57,12 +59,13 @@ export function DirectExpenseModal({
   const [contactName, setContactName] = useState('')
   const [contactPhone, setContactPhone] = useState('')
   const [contactNotice, setContactNotice] = useState('')
-  const [query, setQuery] = useState('')
   const [description, setDescription] = useState('')
   const [amount, setAmount] = useState('')
   const [date, setDate] = useState(localDateValue())
   const [category, setCategory] = useState('General')
   const [notes, setNotes] = useState('')
+  const [reminderDays, setReminderDays] = useState<'' | '7' | '10' | '15' | '30'>('')
+  const [reminderChannels, setReminderChannels] = useState<NotificationChannel[]>(['whatsapp'])
   const [payerId, setPayerId] = useState(currentUser.id)
   const [splitMode, setSplitMode] = useState<SplitMode>('equal')
   const [selectedIds, setSelectedIds] = useState<string[]>([currentUser.id])
@@ -94,6 +97,8 @@ export function DirectExpenseModal({
     setDate(expense?.occurredAt ?? localDateValue())
     setCategory(expense?.category ?? 'General')
     setNotes(expense?.notes ?? '')
+    setReminderDays(expense?.reminderScheduleDays ? String(expense.reminderScheduleDays) as typeof reminderDays : '')
+    setReminderChannels(expense?.reminderChannels?.length ? expense.reminderChannels : ['whatsapp'])
     setPayerId(expense?.payers[0]?.userId ?? currentUser.id)
     setSplitMode(expense ? 'exact' : 'equal')
     const initialIds = expense
@@ -105,7 +110,6 @@ export function DirectExpenseModal({
       : {})
     setError('')
     setContactNotice('')
-    setQuery('')
     setShowAddContact(false)
   }, [open, expense?.id, currentUser.id, initialContact?.id])
 
@@ -115,10 +119,6 @@ export function DirectExpenseModal({
     for (const user of [...users, ...contactUsers]) merged.set(user.id, user)
     return Array.from(merged.values())
   }, [contactUsers, currentUser, users])
-  const filteredContacts = contacts.filter((contact) => {
-    const needle = query.trim().toLowerCase()
-    return !needle || contact.name.toLowerCase().includes(needle) || contact.msisdn.includes(needle)
-  })
 
   if (!open) return null
 
@@ -208,8 +208,9 @@ export function DirectExpenseModal({
 
       const timestamp = new Date().toISOString()
       const people = participantUsers.filter((user) => selectedIds.includes(user.id))
-      onSave({
-        id: expense?.id ?? crypto.randomUUID(),
+      const expenseId = expense?.id ?? crypto.randomUUID()
+      const nextExpense: Expense = {
+        id: expenseId,
         groupId: DIRECT_SPLIT_GROUP_ID,
         description: description.trim(),
         notes: notes.trim() || undefined,
@@ -221,7 +222,21 @@ export function DirectExpenseModal({
         createdBy: expense?.createdBy ?? currentUser.id,
         payers: [{ userId: payerId, amount: total }],
         shares,
-      }, people)
+        reminderScheduleDays: reminderDays ? Number(reminderDays) as 7 | 10 | 15 | 30 : undefined,
+        reminderPayerIds: reminderDays ? selectedIds.filter((id) => id !== payerId) : undefined,
+        reminderChannels: reminderDays ? reminderChannels : undefined,
+      }
+      onSave(nextExpense, people)
+      if (reminderDays) {
+        const reminderTargets = contacts.filter((contact) => selectedIds.includes(contactParticipantId(contact)) && contactParticipantId(contact) !== payerId)
+        void Promise.allSettled(reminderTargets.map((contact) => api.reminders.create({
+          sourceType: 'expense', sourceId: expenseId, expenseDescription: nextExpense.description,
+          currency: nextExpense.currency, amountMinor: shares.find((share) => share.userId === contactParticipantId(contact))?.amount ?? total,
+          payerUserId: contact.contactUserId, payerName: contact.name, payerMsisdn: contact.msisdn,
+          channels: reminderChannels,
+          intervalDays: Number(reminderDays) as 7 | 10 | 15 | 30,
+        })))
+      }
       onClose()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not save this direct split.')
@@ -232,13 +247,14 @@ export function DirectExpenseModal({
 
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
-      <section className="modal direct-expense-modal" role="dialog" aria-modal="true" aria-labelledby="direct-expense-title" onMouseDown={(event) => event.stopPropagation()}>
+      <section className="modal form-modal direct-expense-modal" role="dialog" aria-modal="true" aria-labelledby="direct-expense-title" onMouseDown={(event) => event.stopPropagation()}>
         <header className="modal__header">
           <div><span className="eyebrow"><Users size={13} /> No group needed</span><h2 id="direct-expense-title">{expense ? 'Edit direct split' : 'Split with people'}</h2></div>
           <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={20} /></button>
         </header>
 
         <form onSubmit={submit}>
+          <div className="modal__scroll">
           <section className="direct-people-section">
             <div className="direct-section-heading"><div><strong>Who is involved?</strong><span>Registered users and phone-only contacts both work.</span></div><button type="button" className="button button--soft" onClick={() => setShowAddContact((visible) => !visible)}><UserPlus size={15} /> Add person</button></div>
             {showAddContact && (
@@ -248,19 +264,13 @@ export function DirectExpenseModal({
                 <button type="button" className="button button--primary" onClick={() => void addContact()}><Plus size={15} /> Save & add</button>
               </div>
             )}
-            <label className="direct-contact-search"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search saved contacts" /></label>
-            <div className="direct-contact-list">
+            <div className="direct-contact-list direct-contact-list--you">
               <button type="button" className={`direct-contact-row ${selectedIds.includes(currentUser.id) ? 'is-selected' : ''}`} onClick={() => toggleParticipant(currentUser.id)}>
                 <span className="direct-contact-check">{selectedIds.includes(currentUser.id) && <Check size={13} />}</span><Avatar user={currentUser} size="small" /><span><strong>{currentUser.name} (you)</strong><small>Fairshare account</small></span><i>YOU</i>
               </button>
-              {filteredContacts.map((contact) => {
-                const user = contactAsUser(contact)
-                const selected = selectedIds.includes(user.id)
-                return <button type="button" className={`direct-contact-row ${selected ? 'is-selected' : ''}`} key={contact.id} onClick={() => toggleParticipant(user.id)}><span className="direct-contact-check">{selected && <Check size={13} />}</span><Avatar user={user} size="small" /><span><strong>{contact.name}</strong><small>{contact.msisdn}</small></span><i className={contact.isRegisteredUser ? 'is-registered' : ''}>{contact.isRegisteredUser ? 'ON FAIRSHARE' : 'PHONE'}</i></button>
-              })}
-              {!contactsLoading && filteredContacts.length === 0 && <p className="direct-contact-empty">No saved contacts yet. Add a phone number above.</p>}
               {contactsLoading && <p className="direct-contact-empty">Checking your contacts…</p>}
             </div>
+            <ContactPicker contacts={contacts} multiple selectedIds={contacts.filter((contact) => selectedIds.includes(contactParticipantId(contact))).map((contact) => contact.id)} onChange={(contactIds) => setSelectedIds([...(selectedIds.includes(currentUser.id) ? [currentUser.id] : []), ...contacts.filter((contact) => contactIds.includes(contact.id)).map(contactParticipantId)])} label="People in this split" />
             {contactNotice && <p className="auth-alert auth-alert--success" role="status"><Check size={15} /> {contactNotice}</p>}
           </section>
 
@@ -276,7 +286,10 @@ export function DirectExpenseModal({
 
           <div className="form-grid"><label className="field"><span>Date</span><span className="input-with-icon"><CalendarDays size={16} /><input type="date" value={date} max={localDateValue()} onChange={(event) => setDate(event.target.value)} /></span></label><label className="field"><span>Category</span><select value={category} onChange={(event) => setCategory(event.target.value)}>{['General', 'Dining', 'Groceries', 'Rent', 'Transport', 'Entertainment'].map((value) => <option value={value} key={value}>{value}</option>)}</select></label></div>
           <label className="field"><span>Notes <small>optional</small></span><textarea rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Add context or a reminder note" /></label>
+          <section className="reminder-setup"><span className="reminder-setup__icon"><BellRing size={17} /></span><div><strong>Automatic payment reminders</strong><p>Fairshare can remind everyone who owes the payer until this expense is settled.</p></div><label><span className="sr-only">Reminder schedule</span><select value={reminderDays} onChange={(event) => setReminderDays(event.target.value as typeof reminderDays)}><option value="">Off</option><option value="7">Every 7 days</option><option value="10">Every 10 days</option><option value="15">Every 15 days</option><option value="30">Every 30 days</option></select></label></section>
+          {reminderDays && <ReminderChannelPicker channels={reminderChannels} onChange={setReminderChannels} />}
           {error && <p className="form-error" role="alert">{error}</p>}
+          </div>
           <footer className="modal__footer"><button className="button button--ghost" type="button" onClick={onClose}>Cancel</button><button className="button button--primary" type="submit">{expense ? 'Save changes' : 'Save direct split'}</button></footer>
         </form>
       </section>

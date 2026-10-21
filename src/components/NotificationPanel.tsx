@@ -14,12 +14,18 @@ interface NotificationPanelProps {
   onClose: () => void
 }
 
+export function getNotificationCount(state: LedgerState, preferences: NotificationPreferences) {
+  const expenseCount = preferences.expenseUpdates ? Math.min(state.expenses.length, 2) : 0
+  const paymentCount = preferences.settlementReminders && state.payments.length > 0 ? 1 : 0
+  return expenseCount + paymentCount + (preferences.groupInvites ? 1 : 0)
+}
+
 export function NotificationPanel({ open, state, preferences, unread, onMarkRead, onClose }: NotificationPanelProps) {
   const now = useMinuteClock()
   if (!open) return null
   const latestExpenses = preferences.expenseUpdates ? [...state.expenses].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 2) : []
   const latestPayment = preferences.settlementReminders ? [...state.payments].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] : undefined
-  const updateCount = latestExpenses.length + (latestPayment ? 1 : 0) + (preferences.groupInvites ? 1 : 0)
+  const updateCount = getNotificationCount(state, preferences)
 
   return (
     <div className="notification-panel" role="dialog" aria-label="Notifications">

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AtSign, Check, Copy, ExternalLink, MessageCircle, Send, Sparkles, X } from 'lucide-react'
+import { Check, Copy, ExternalLink, Send, Sparkles, X } from 'lucide-react'
 import type { Debt, Group, User } from '../domain/types'
 import { formatMoney } from '../domain/money'
+import { ChannelLogo } from './ChannelLogo'
 
 type Tone = 'gentle' | 'direct' | 'playful'
 
@@ -70,7 +71,7 @@ export function ReminderModal({ debt, group, currentUser, targetUser, onClose }:
         <label className="field"><span>Reminder tone</span><div className="segmented-control reminder-tones">{(['gentle', 'direct', 'playful'] as Tone[]).map((value) => <button type="button" className={tone === value ? 'is-active' : ''} onClick={() => setTone(value)} key={value}>{value[0]?.toUpperCase()}{value.slice(1)}</button>)}</div></label>
         <label className="field"><span>WhatsApp number <small>optional, with country code</small></span><input inputMode="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="e.g. 919876543210" /></label>
         <label className="field"><span>Prepared message</span><textarea rows={5} value={message} readOnly /></label>
-        <div className="reminder-actions"><button className="button button--secondary" onClick={() => void copyMessage()}><Copy size={16} /> Copy</button><button className="button whatsapp-button" onClick={openWhatsApp}><MessageCircle size={16} /> WhatsApp <ExternalLink size={13} /></button><button className="button instagram-button" onClick={() => void openInstagram()}><AtSign size={16} /> Instagram <Send size={13} /></button></div>
+        <div className="reminder-actions"><button className="button button--secondary" onClick={() => void copyMessage()}><Copy size={16} /> Copy</button><button className="button whatsapp-button" onClick={openWhatsApp}><ChannelLogo channel="whatsapp" size={17} /> WhatsApp <ExternalLink size={13} /></button><button className="button instagram-button" onClick={() => void openInstagram()}><ChannelLogo channel="instagram" size={17} /> Instagram <Send size={13} /></button></div>
         <p className="helper-copy">Fairshare prepares the reminder; you review and tap send in the chosen app. Instagram’s public API cannot silently send arbitrary personal DMs.</p>
         {status && <p className="auth-alert auth-alert--success" role="status"><Check size={14} /> {status}</p>}
       </section>

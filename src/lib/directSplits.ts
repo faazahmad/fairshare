@@ -2,6 +2,7 @@ import type { Contact, User } from '../domain/types'
 
 export const DIRECT_SPLIT_GROUP_ID = 'direct-splits'
 export const CONTACTS_STORAGE_KEY = 'fairshare-contacts-v1'
+export const RECENT_CONTACTS_STORAGE_KEY = 'fairshare-recent-contacts-v1'
 
 function initialsFor(name: string): string {
   return name
@@ -43,7 +44,25 @@ export function mergeContacts(...sets: Contact[][]): Contact[] {
   const merged = new Map<string, Contact>()
   for (const contact of sets.flat()) {
     const key = normalizeMsisdn(contact.msisdn) || String(contact.id)
-    merged.set(key, { ...merged.get(key), ...contact, msisdn: normalizeMsisdn(contact.msisdn) || contact.msisdn })
+    const current = merged.get(key)
+    if (!current) {
+      merged.set(key, { ...contact, msisdn: normalizeMsisdn(contact.msisdn) || contact.msisdn })
+      continue
+    }
+    const currentRegistered = Boolean(current.contactUserId || current.isRegisteredUser)
+    const incomingRegistered = Boolean(contact.contactUserId || contact.isRegisteredUser)
+    const preferred = currentRegistered && !incomingRegistered ? current : contact
+    merged.set(key, {
+      ...current,
+      ...contact,
+      ...preferred,
+      contactUserId: current.contactUserId ?? contact.contactUserId,
+      isRegisteredUser: currentRegistered || incomingRegistered,
+      ...(current.favorite !== undefined || contact.favorite !== undefined
+        ? { favorite: Boolean(current.favorite || contact.favorite) }
+        : {}),
+      msisdn: normalizeMsisdn(contact.msisdn) || contact.msisdn,
+    })
   }
   return Array.from(merged.values()).sort((a, b) => a.name.localeCompare(b.name))
 }
@@ -59,4 +78,13 @@ export function readLocalContacts(): Contact[] {
 
 export function saveLocalContacts(contacts: Contact[]): void {
   localStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify(contacts))
+}
+
+export function readRecentContactIds(): string[] {
+  try { return JSON.parse(localStorage.getItem(RECENT_CONTACTS_STORAGE_KEY) ?? '[]') as string[] } catch { return [] }
+}
+
+export function recordRecentContact(contactId: string): void {
+  const next = [contactId, ...readRecentContactIds().filter((id) => id !== contactId)].slice(0, 8)
+  localStorage.setItem(RECENT_CONTACTS_STORAGE_KEY, JSON.stringify(next))
 }

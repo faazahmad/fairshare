@@ -1,7 +1,8 @@
 import {
   Bell, BellRing, Camera, Check, ChevronRight, EyeOff, FileKey2, Globe2, Group,
-  ImagePlus, KeyRound, LayoutGrid, LockKeyhole, LogOut, Mail, Monitor, Moon,
-  Palette, Save, ShieldCheck, Smartphone, Sun, Trash2, UserRound, WandSparkles,
+  ImagePlus, KeyRound, Landmark, LayoutGrid, LockKeyhole, LogOut, Mail, Monitor, Moon,
+  Palette, Save, ShieldCheck, SlidersHorizontal, Smartphone, Sun, Trash2, UserRound, WandSparkles,
+  QrCode,
 } from 'lucide-react'
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import type {
@@ -12,7 +13,9 @@ import { Avatar } from '../components/Avatar'
 import { formatMoney } from '../domain/money'
 import { translate, type TranslationKey } from '../lib/i18n'
 
-export type SettingsSection = 'profile' | 'notifications' | 'appearance' | 'security'
+export type SettingsSection = 'notifications' | 'appearance' | 'security'
+
+export type ProfileSaveHandler = (profile: Partial<Pick<User, 'name' | 'email' | 'avatarUrl' | 'phone' | 'instagramHandle' | 'upiId' | 'bankAccountName' | 'bankAccountNumber' | 'bankIfsc' | 'paymentQrData' | 'defaultCurrency' | 'language'>>) => void | Promise<void>
 
 interface SettingsPageProps {
   user: User
@@ -22,7 +25,6 @@ interface SettingsPageProps {
   security: SecurityPreferences
   authProvider: string
   onSectionChange: (section: SettingsSection) => void
-  onSaveProfile: (profile: Partial<Pick<User, 'name' | 'email' | 'avatarUrl' | 'phone' | 'instagramHandle' | 'defaultCurrency' | 'language'>>) => void
   onUpdatePreferences: (patch: Partial<AppPreferences>) => void
   onUpdateNotifications: (patch: Partial<NotificationPreferences>) => void
   onUpdateSecurity: (patch: Partial<SecurityPreferences>) => void
@@ -32,24 +34,20 @@ interface SettingsPageProps {
 }
 
 const sections: Array<{ id: SettingsSection; labelKey: TranslationKey; icon: typeof UserRound }> = [
-  { id: 'profile', labelKey: 'profile', icon: UserRound },
   { id: 'notifications', labelKey: 'notifications', icon: Bell },
   { id: 'appearance', labelKey: 'appearance', icon: Palette },
   { id: 'security', labelKey: 'security', icon: ShieldCheck },
 ]
 
 export function SettingsPage(props: SettingsPageProps) {
-  const active = sections.find((section) => section.id === props.activeSection) ?? sections[0]!
-  const ActiveIcon = active.icon
   const t = (key: TranslationKey, variables?: Record<string, string | number>) => translate(props.user.language, key, variables)
-  const activeLabel = t(active.labelKey)
 
   return (
     <main className="main-panel page-panel" id="top">
       {props.topbar}
       <div className="content page-content settings-content">
         <section className="page-hero settings-hero">
-          <div><span className="page-hero__icon"><ActiveIcon size={23} /></span><div><span className="eyebrow">{t('personalAccount')}</span><h1>{activeLabel}</h1><p>{t('managePreferences', { section: activeLabel.toLowerCase() })}</p></div></div>
+          <div><span className="page-hero__icon"><SlidersHorizontal size={23} /></span><div><span className="eyebrow">{t('personalAccount')}</span><h1>Settings</h1><p>Manage alerts, appearance, and account protection in one place.</p></div></div>
         </section>
 
         <div className="settings-layout">
@@ -57,7 +55,6 @@ export function SettingsPage(props: SettingsPageProps) {
             {sections.map(({ id, labelKey, icon: Icon }) => <button type="button" role="tab" aria-selected={props.activeSection === id} className={props.activeSection === id ? 'is-active' : ''} onClick={() => props.onSectionChange(id)} key={id}><Icon size={17} /><span>{t(labelKey)}</span><ChevronRight size={14} /></button>)}
           </nav>
           <div className="settings-sections">
-            {props.activeSection === 'profile' && <ProfilePanel user={props.user} onSave={props.onSaveProfile} />}
             {props.activeSection === 'notifications' && <NotificationsPanel preferences={props.notifications} onUpdate={props.onUpdateNotifications} />}
             {props.activeSection === 'appearance' && <AppearancePanel preferences={props.preferences} onUpdate={props.onUpdatePreferences} />}
             {props.activeSection === 'security' && <SecurityPanel user={props.user} provider={props.authProvider} preferences={props.security} onUpdate={props.onUpdateSecurity} onResetPassword={props.onResetPassword} onSignOut={props.onSignOut} />}
@@ -68,7 +65,7 @@ export function SettingsPage(props: SettingsPageProps) {
   )
 }
 
-function ProfilePanel({ user, onSave }: { user: User; onSave: SettingsPageProps['onSaveProfile'] }) {
+export function ProfilePanel({ user, onSave }: { user: User; onSave: ProfileSaveHandler }) {
   const [name, setName] = useState(user.name)
   const [email, setEmail] = useState(user.email)
   const [phone, setPhone] = useState(user.phone ?? '')
@@ -76,15 +73,24 @@ function ProfilePanel({ user, onSave }: { user: User; onSave: SettingsPageProps[
   const [avatarUrl, setAvatarUrl] = useState(user.avatarUrl ?? '')
   const [currency, setCurrency] = useState(user.defaultCurrency ?? 'INR')
   const [language, setLanguage] = useState(user.language ?? 'en')
+  const [upiId, setUpiId] = useState(user.upiId ?? '')
+  const [bankAccountName, setBankAccountName] = useState(user.bankAccountName ?? '')
+  const [bankAccountNumber, setBankAccountNumber] = useState(user.bankAccountNumber ?? '')
+  const [bankIfsc, setBankIfsc] = useState(user.bankIfsc ?? '')
+  const [paymentQrData, setPaymentQrData] = useState(user.paymentQrData ?? '')
   const [feedback, setFeedback] = useState('')
   const [error, setError] = useState('')
   const fileInput = useRef<HTMLInputElement>(null)
+  const qrInput = useRef<HTMLInputElement>(null)
   const t = (key: TranslationKey) => translate(user.language, key)
 
   useEffect(() => {
     setName(user.name); setEmail(user.email); setPhone(user.phone ?? '')
     setInstagramHandle(user.instagramHandle ?? ''); setAvatarUrl(user.avatarUrl ?? '')
     setCurrency(user.defaultCurrency ?? 'INR'); setLanguage(user.language ?? 'en')
+    setUpiId(user.upiId ?? ''); setBankAccountName(user.bankAccountName ?? '')
+    setBankAccountNumber(user.bankAccountNumber ?? ''); setBankIfsc(user.bankIfsc ?? '')
+    setPaymentQrData(user.paymentQrData ?? '')
   }, [user])
 
   function choosePhoto(event: ChangeEvent<HTMLInputElement>) {
@@ -99,17 +105,35 @@ function ProfilePanel({ user, onSave }: { user: User; onSave: SettingsPageProps[
     reader.readAsDataURL(file)
   }
 
-  function save(event: React.FormEvent) {
+  function choosePaymentQr(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    setError('')
+    if (!file) return
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) { setError('Choose a PNG, JPEG, or WebP payment QR.'); return }
+    if (file.size > 1_000_000) { setError('Payment QR images must be smaller than 1 MB.'); return }
+    const reader = new FileReader()
+    reader.onload = () => setPaymentQrData(String(reader.result ?? ''))
+    reader.onerror = () => setError('That payment QR could not be read.')
+    reader.readAsDataURL(file)
+  }
+
+  async function save(event: React.FormEvent) {
     event.preventDefault()
     if (!name.trim() || !/^\S+@\S+\.\S+$/.test(email.trim())) { setError('Enter a name and a valid email address.'); return }
-    onSave({ name: name.trim(), email: email.trim(), phone: phone.trim(), instagramHandle: instagramHandle.trim().replace(/^@/, ''), avatarUrl: avatarUrl || undefined, defaultCurrency: currency, language })
-    setError(''); setFeedback('Profile saved on this device.')
+    try {
+      await onSave({ name: name.trim(), email: email.trim(), phone: phone.trim(), instagramHandle: instagramHandle.trim().replace(/^@/, ''), avatarUrl: avatarUrl || '', upiId: upiId.trim(), bankAccountName: bankAccountName.trim(), bankAccountNumber: bankAccountNumber.trim(), bankIfsc: bankIfsc.trim().toUpperCase(), paymentQrData, defaultCurrency: currency, language })
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Profile could not be saved.')
+      return
+    }
+    setError(''); setFeedback('Profile and payment details saved.')
     window.setTimeout(() => setFeedback(''), 2200)
   }
 
   return <form className="settings-panel" role="tabpanel" aria-label="Profile settings" onSubmit={save}>
     <section className="settings-card profile-photo-card"><header><div><h2>Profile picture</h2><p>Shown to friends in groups and settlements.</p></div><ImagePlus size={20} /></header><div className="profile-photo-editor"><Avatar user={{ ...user, name, email, avatarUrl: avatarUrl || undefined }} size="large" /><div><strong>{name || user.name}</strong><span>PNG, JPEG, or WebP · maximum 1.5 MB</span><div><button className="button button--secondary" type="button" onClick={() => fileInput.current?.click()}><Camera size={16} /> Choose photo</button>{avatarUrl && <button className="button button--ghost danger-text" type="button" onClick={() => setAvatarUrl('')}><Trash2 size={15} /> Remove</button>}</div></div><input ref={fileInput} className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" aria-label="Upload profile picture" onChange={choosePhoto} /></div></section>
     <section className="settings-card"><header><div><h2>Personal details</h2><p>Used for receipts, reminders, and shared groups.</p></div><UserRound size={20} /></header><div className="form-grid"><label className="field"><span>Full name</span><input autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} /></label><label className="field"><span>Email address</span><input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label><label className="field"><span>Phone number</span><input inputMode="tel" autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="Used for WhatsApp reminders" /></label><label className="field"><span>Instagram username</span><input value={instagramHandle} onChange={(event) => setInstagramHandle(event.target.value)} placeholder="@username" /></label></div></section>
+    <section className="settings-card payment-details-card"><header><div><h2>Receive payments</h2><p>Add one or more methods. You choose which one is shared on each money request.</p></div><Landmark size={20} /></header><div className="form-grid"><label className="field"><span>UPI ID</span><input value={upiId} onChange={(event) => setUpiId(event.target.value)} placeholder="name@bank" autoComplete="off" /></label><label className="field"><span>Account holder</span><input value={bankAccountName} onChange={(event) => setBankAccountName(event.target.value)} placeholder="Name on bank account" autoComplete="off" /></label><label className="field"><span>Bank account number</span><input value={bankAccountNumber} onChange={(event) => setBankAccountNumber(event.target.value)} inputMode="numeric" placeholder="Account number" autoComplete="off" /></label><label className="field"><span>IFSC code</span><input value={bankIfsc} onChange={(event) => setBankIfsc(event.target.value.toUpperCase())} placeholder="ABCD0123456" autoComplete="off" /></label></div><div className="payment-qr-editor"><div className="payment-qr-preview">{paymentQrData ? <img src={paymentQrData} alt="Your payment QR preview" /> : <QrCode size={34} />}</div><div><strong>Payment QR</strong><span>PNG, JPEG, or WebP · maximum 1 MB</span><div><button className="button button--secondary" type="button" onClick={() => qrInput.current?.click()}><QrCode size={16} /> {paymentQrData ? 'Replace QR' : 'Add QR'}</button>{paymentQrData && <button className="button button--ghost danger-text" type="button" onClick={() => setPaymentQrData('')}><Trash2 size={15} /> Remove</button>}</div></div><input ref={qrInput} className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" aria-label="Upload payment QR" onChange={choosePaymentQr} /></div></section>
     <section className="settings-card regional-card"><header><div><h2>Regional preferences</h2><p>Save to apply these choices across the web and mobile app.</p></div><Globe2 size={20} /></header><div className="form-grid regional-fields"><label className="field"><span>{t('defaultCurrency')}</span><select value={currency} onChange={(event) => setCurrency(event.target.value)}><option value="INR">INR — Indian Rupee</option><option value="USD">USD — US Dollar</option><option value="EUR">EUR — Euro</option><option value="GBP">GBP — British Pound</option></select></label><label className="field"><span>{t('language')}</span><select value={language} onChange={(event) => setLanguage(event.target.value)}><option value="en">English</option><option value="hi">हिन्दी</option><option value="es">Español</option></select></label></div><div className="regional-preview" aria-live="polite"><Globe2 size={17} /><div><strong>{formatMoney(123456, currency)}</strong><span>Currency updates the local ledger label; amounts are not converted using live FX rates. Language updates the app shell after saving.</span></div></div></section>
     {error && <p className="auth-alert auth-alert--error" role="alert">{error}</p>}{feedback && <p className="auth-alert auth-alert--success" role="status"><Check size={14} /> {feedback}</p>}
     <button className="button button--primary settings-save" type="submit"><Save size={17} /> {t('saveProfile')}</button>

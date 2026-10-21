@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AtSign, Check, Copy, ExternalLink, HandCoins, MessageCircle, Send, X } from 'lucide-react'
+import { Check, Copy, ExternalLink, HandCoins, Send, X } from 'lucide-react'
 import type { Group, Payment, User } from '../domain/types'
 import { formatMoney } from '../domain/money'
+import { ChannelLogo } from './ChannelLogo'
 
 interface PaymentShareModalProps {
   payment: Payment | null
@@ -66,7 +67,7 @@ export function PaymentShareModal({ payment, group, currentUser, targetUser, onC
         <div className="reminder-balance"><span>{group.emoji}</span><div><small>Payment recorded in {group.name}</small><strong>{formatMoney(payment.amount, payment.currency)}</strong></div></div>
         <label className="field"><span>WhatsApp number <small>optional, with country code</small></span><input inputMode="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="e.g. 919876543210" /></label>
         <label className="field"><span>Prepared update</span><textarea rows={5} value={message} readOnly /></label>
-        <div className="reminder-actions"><button className="button button--secondary" type="button" onClick={() => void copyMessage()}><Copy size={16} /> Copy</button><button className="button whatsapp-button" type="button" onClick={openWhatsApp}><MessageCircle size={16} /> WhatsApp <ExternalLink size={13} /></button><button className="button instagram-button" type="button" onClick={() => void openInstagram()}><AtSign size={16} /> Instagram <Send size={13} /></button></div>
+        <div className="reminder-actions"><button className="button button--secondary" type="button" onClick={() => void copyMessage()}><Copy size={16} /> Copy</button><button className="button whatsapp-button" type="button" onClick={openWhatsApp}><ChannelLogo channel="whatsapp" size={17} /> WhatsApp <ExternalLink size={13} /></button><button className="button instagram-button" type="button" onClick={() => void openInstagram()}><ChannelLogo channel="instagram" size={17} /> Instagram <Send size={13} /></button></div>
         <p className="helper-copy">Fairshare prepares the update; you review it and tap send in the chosen app. No message is sent silently.</p>
         {status && <p className="auth-alert auth-alert--success" role="status"><Check size={14} /> {status}</p>}
       </section>

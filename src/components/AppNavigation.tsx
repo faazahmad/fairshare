@@ -5,7 +5,7 @@ import { groupBalance } from '../lib/ledger'
 import { Avatar } from './Avatar'
 import { resolveLanguage, translate } from '../lib/i18n'
 
-export type AppView = 'home' | 'expenses' | 'activity' | 'groups' | 'pay' | 'people' | 'settings'
+export type AppView = 'home' | 'expenses' | 'activity' | 'groups' | 'pay' | 'people' | 'profile' | 'settings' | 'chats'
 
 interface AppNavigationProps {
   state: LedgerState
@@ -69,7 +69,7 @@ export function AppNavigation({ state, currentView, selectedGroupId, recentGroup
       </div>
 
       <div className="sidebar-spacer" />
-      <button className={`profile-card ${currentView === 'settings' ? 'is-active' : ''}`} onClick={() => onNavigate('settings')}>
+      <button className={`profile-card ${currentView === 'profile' ? 'is-active' : ''}`} onClick={() => onNavigate('profile')}>
         <Avatar user={currentUser} />
         <span><strong>{currentUser.name}</strong><small>Personal account</small></span>
         <ChevronDown size={16} />

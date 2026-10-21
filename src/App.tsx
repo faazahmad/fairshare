@@ -4,21 +4,24 @@ import type { Debt, Payment } from './domain/types'
 import { useLedger } from './store/useLedger'
 import { usePreferences } from './store/usePreferences'
 import { useAccountPreferences } from './store/useAccountPreferences'
-import { findUser } from './lib/ledger'
 import { AppNavigation, type AppView } from './components/AppNavigation'
 import { AppTopbar } from './components/AppTopbar'
+import { getNotificationCount } from './components/NotificationPanel'
 import { MobileNavigation } from './components/MobileNavigation'
 import { UpcomingBillsPanel } from './components/UpcomingBillsPanel'
 import { useAuth } from './auth/AuthProvider'
 import { localeForLanguage, resolveLanguage } from './lib/i18n'
 import type { SettingsSection } from './pages/SettingsPage'
 import { DIRECT_SPLIT_GROUP_ID } from './lib/directSplits'
+import { api } from './lib/api'
 
 const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })))
 const GroupPage = lazy(() => import('./pages/GroupPage').then((m) => ({ default: m.GroupPage })))
 const ActivityPage = lazy(() => import('./pages/ActivityPage').then((m) => ({ default: m.ActivityPage })))
 const GroupsPage = lazy(() => import('./pages/GroupsPage').then((m) => ({ default: m.GroupsPage })))
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
+const ProfilePage = lazy(() => import('./pages/ProfilePage').then((m) => ({ default: m.ProfilePage })))
+const ChatsPage = lazy(() => import('./pages/ChatsPage').then((m) => ({ default: m.ChatsPage })))
 const PayLendPage = lazy(() => import('./pages/PayLendPage').then((m) => ({ default: m.PayLendPage })))
 const PeopleHubPage = lazy(() => import('./pages/PeopleHubPage').then((m) => ({ default: m.PeopleHubPage })))
 
@@ -77,7 +80,9 @@ export default function App({ nativeExperience = false }: AppProps) {
   const [query, setQuery] = useState('')
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [notificationsUnread, setNotificationsUnread] = useState(true)
-  const [settingsSection, setSettingsSection] = useState<SettingsSection>('profile')
+  const [settingsSection, setSettingsSection] = useState<SettingsSection>('notifications')
+  const [chatTargetUserId, setChatTargetUserId] = useState<string | null>(null)
+  const [chatThreadOpen, setChatThreadOpen] = useState(false)
   const [recentGroupIds, setRecentGroupIds] = useState<string[]>(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(RECENT_GROUPS_KEY) ?? '[]') as string[]
@@ -88,10 +93,22 @@ export default function App({ nativeExperience = false }: AppProps) {
   })
   const syncedAuthId = useRef<string | null>(localStorage.getItem(LAST_SYNCED_AUTH_KEY))
 
-  const currentUser = findUser(state.users, state.currentUserId)
+  const sessionUser = authUser!
+  const currentUser: User = state.users.find((user) => user.id === state.currentUserId) ?? {
+    id: sessionUser.id,
+    name: sessionUser.name,
+    email: sessionUser.email,
+    phone: sessionUser.phone,
+    avatarUrl: sessionUser.avatarUrl,
+    initials: sessionUser.name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') || 'FS',
+    color: '#173f3a',
+    defaultCurrency: 'INR',
+    language: 'en',
+  }
   const group = state.groups.find((entry) => entry.id === selectedGroupId) ?? state.groups[0]
   const language = resolveLanguage(currentUser.language)
   const currency = currentUser.defaultCurrency ?? 'INR'
+  const notificationCount = notificationsUnread ? getNotificationCount(state, notifications) : 0
   const lockedMemberIds = editingGroup ? Array.from(new Set([
     ...state.expenses.filter((entry) => entry.groupId === editingGroup.id).flatMap((entry) => [...entry.payers.map((payer) => payer.userId), ...entry.shares.map((share) => share.userId)]),
     ...state.payments.filter((entry) => entry.groupId === editingGroup.id).flatMap((entry) => [entry.fromUserId, entry.toUserId]),
@@ -140,7 +157,7 @@ export default function App({ nativeExperience = false }: AppProps) {
     navigate('expenses')
   }
 
-  function openSettings(section: SettingsSection = 'profile') {
+  function openSettings(section: SettingsSection = 'notifications') {
     setSettingsSection(section)
     navigate('settings')
   }
@@ -178,6 +195,17 @@ export default function App({ nativeExperience = false }: AppProps) {
   function openAddExpense() {
     setEditingExpense(null)
     setExpenseOpen(true)
+  }
+
+  function openChats(userId: string | null = null) {
+    setChatTargetUserId(userId)
+    setChatThreadOpen(false)
+    navigate('chats')
+  }
+
+  async function saveProfile(profile: Parameters<typeof api.users.updateProfile>[0]) {
+    const saved = await api.users.updateProfile(profile)
+    updateCurrentUser(saved)
   }
 
   function openDirectExpense(contact: Contact | null = null) {
@@ -242,15 +270,18 @@ export default function App({ nativeExperience = false }: AppProps) {
       currentView={currentView}
       query={query}
       notificationsOpen={notificationsOpen}
-      notificationsUnread={notificationsUnread}
+      notificationCount={notificationCount}
       notificationPreferences={notifications}
       onQueryChange={setQuery}
       onToggleNotifications={() => setNotificationsOpen((open) => !open)}
       onMarkNotificationsRead={() => setNotificationsUnread(false)}
+      onOpenHome={() => navigate('home')}
       onOpenPeopleHub={() => navigate('people')}
-      onOpenSettings={openSettings}
+      onOpenChats={() => openChats()}
+      onOpenProfile={() => navigate('profile')}
+      onOpenSettings={() => openSettings('notifications')}
     />
-  ), [state, currentUser, currentView, query, notificationsOpen, notificationsUnread, notifications])
+  ), [state, currentUser, currentView, query, notificationsOpen, notificationCount, notifications])
 
   const defaultGroup: Group = {
     id: '',
@@ -264,7 +295,7 @@ export default function App({ nativeExperience = false }: AppProps) {
   const activeGroup = group || defaultGroup
 
   return (
-    <div className={`app-shell ${currentView === 'expenses' ? '' : 'app-shell--wide'}${nativeExperience ? ' app-shell--native' : ''}`}>
+    <div className={`app-shell ${currentView === 'expenses' ? '' : 'app-shell--wide'}${nativeExperience ? ' app-shell--native' : ''}${currentView === 'profile' || (currentView === 'chats' && chatThreadOpen) ? ' app-shell--immersive' : ''}`}>
       <AppNavigation state={state} currentView={currentView} selectedGroupId={activeGroup.id} recentGroupIds={recentGroupIds} onNavigate={navigate} onSelectGroup={openGroup} onCreateGroup={openCreateGroup} />
 
       <Suspense fallback={<div className="page-content" style={{ minHeight: '60vh', display: 'grid', placeItems: 'center', color: 'var(--muted)' }}>Loading...</div>}>
@@ -294,11 +325,13 @@ export default function App({ nativeExperience = false }: AppProps) {
         {currentView === 'activity' && <ActivityPage state={state} query={query} onOpenExpense={setSelectedExpense} onOpenPayment={setSelectedPayment} onOpenNotificationSettings={() => openSettings('notifications')} topbar={topbar} />}
         {currentView === 'groups' && <GroupsPage state={state} onCreateGroup={openCreateGroup} onOpenGroup={openGroup} onManageGroup={openManageGroup} topbar={topbar} />}
         {currentView === 'pay' && <PayLendPage topbar={topbar} />}
-        {currentView === 'people' && <PeopleHubPage topbar={topbar} currentUserId={state.currentUserId} currency={currency} onSplitWithContact={(contact) => openDirectExpense(contact)} />}
-        {currentView === 'settings' && <SettingsPage user={currentUser} activeSection={settingsSection} preferences={preferences} notifications={notifications} security={security} authProvider={authUser?.provider ?? 'email'} onSectionChange={setSettingsSection} onSaveProfile={updateCurrentUser} onUpdatePreferences={updatePreferences} onUpdateNotifications={updateNotifications} onUpdateSecurity={updateSecurity} onResetPassword={async () => (await sendPasswordReset(currentUser.email)).message ?? 'Password reset instructions sent.'} onSignOut={() => void signOut()} topbar={topbar} />}
+        {currentView === 'people' && <PeopleHubPage topbar={topbar} currentUser={currentUser} currency={currency} expenses={state.expenses} onSplitWithContact={(contact) => openDirectExpense(contact)} onOpenChat={(contact) => openChats(contact.contactUserId ?? null)} />}
+        {currentView === 'profile' && <ProfilePage user={currentUser} onHome={() => navigate('home')} onOpenSettings={() => openSettings('notifications')} onSave={saveProfile} topbar={topbar} />}
+        {currentView === 'settings' && <SettingsPage user={currentUser} activeSection={settingsSection} preferences={preferences} notifications={notifications} security={security} authProvider={authUser?.provider ?? 'email'} onSectionChange={setSettingsSection} onUpdatePreferences={updatePreferences} onUpdateNotifications={updateNotifications} onUpdateSecurity={updateSecurity} onResetPassword={async () => (await sendPasswordReset(currentUser.email)).message ?? 'Password reset instructions sent.'} onSignOut={() => void signOut()} topbar={topbar} />}
+        {currentView === 'chats' && <ChatsPage currentUser={currentUser} initialContactUserId={chatTargetUserId} onThreadOpenChange={setChatThreadOpen} topbar={topbar} />}
       </Suspense>
 
-      <MobileNavigation currentView={currentView} language={language} onNavigate={navigate} />
+      {currentView !== 'profile' && !(currentView === 'chats' && chatThreadOpen) && <MobileNavigation currentView={currentView} language={language} onNavigate={navigate} />}
 
       {expenseOpen && (
         <Suspense fallback={null}>

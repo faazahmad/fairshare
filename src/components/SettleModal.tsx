@@ -66,7 +66,7 @@ export function SettleModal({ open, payment, suggestedDebt, group, users, curren
 
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
-      <section className="modal settle-modal" role="dialog" aria-modal="true" aria-labelledby="settle-title" onMouseDown={(event) => event.stopPropagation()}>
+      <section className="modal form-modal settle-modal" role="dialog" aria-modal="true" aria-labelledby="settle-title" onMouseDown={(event) => event.stopPropagation()}>
         <header className="modal__header">
           <div>
             <span className="eyebrow">{payment ? 'Update a ledger payment' : 'Record an external payment'}</span>
@@ -75,6 +75,7 @@ export function SettleModal({ open, payment, suggestedDebt, group, users, curren
           <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={20} /></button>
         </header>
         <form onSubmit={submit}>
+          <div className="modal__scroll">
           <div className="settlement-people">
             <label>
               {fromUser && <Avatar user={fromUser} size="large" />}
@@ -103,6 +104,7 @@ export function SettleModal({ open, payment, suggestedDebt, group, users, curren
           </div>
           <p className="helper-copy">This records a payment in Fairshare. It does not move real money.</p>
           {error && <p className="form-error" role="alert">{error}</p>}
+          </div>
           <footer className="modal__footer">
             <button className="button button--ghost" type="button" onClick={onClose}>Cancel</button>
             <button className="button button--primary" type="submit">{payment ? 'Save changes' : 'Record payment'}</button>

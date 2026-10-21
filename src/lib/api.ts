@@ -1,4 +1,4 @@
-import type { Contact, Expense, Group, MoneyRequest, Payment, UpcomingBill, User } from '../domain/types'
+import type { ChatConversation, ChatMessage, Contact, Expense, Group, MoneyRequest, NotificationChannel, Payment, PaymentReminder, UpcomingBill, User } from '../domain/types'
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1').replace(/\/$/, '')
 
@@ -21,7 +21,7 @@ interface ApiResponse<T> {
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem(ACCESS_TOKEN_KEY)
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
     ...(options.headers as Record<string, string> || {}),
   }
 
@@ -70,6 +70,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 
   return body.data
+}
+
+async function requestBlob(path: string): Promise<Blob> {
+  const token = localStorage.getItem(ACCESS_TOKEN_KEY)
+  const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {}
+  const response = await fetch(`${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`, { headers })
+  if (!response.ok) throw new ApiError(response.status, `File could not be loaded (${response.status}).`)
+  return response.blob()
 }
 
 async function attemptRefreshToken(refreshToken: string): Promise<boolean> {
@@ -159,6 +167,26 @@ export const api = {
       request<void>(`/users/me/contacts/${id}`, {
         method: 'DELETE',
       }),
+    update: (id: string, updates: { name?: string; favorite?: boolean }) =>
+      request<Contact>(`/users/me/contacts/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updates),
+      }),
+  },
+
+  chats: {
+    conversations: () => request<ChatConversation[]>('/chats'),
+    list: (otherUserId: string) => request<ChatMessage[]>(`/chats/${otherUserId}/messages`),
+    send: (otherUserId: string, message: { content?: string; messageType?: ChatMessage['messageType']; stickerCode?: string }) =>
+      request<ChatMessage>(`/chats/${otherUserId}/messages`, { method: 'POST', body: JSON.stringify(message) }),
+    markRead: (otherUserId: string) => request<void>(`/chats/${otherUserId}/read`, { method: 'PUT' }),
+    sendVoice: async (otherUserId: string, audio: Blob, durationMs: number) => {
+      const body = new FormData()
+      body.append('audio', audio, `voice-${Date.now()}.webm`)
+      body.append('durationMs', String(durationMs))
+      return request<ChatMessage>(`/chats/${otherUserId}/voice`, { method: 'POST', body, headers: {} })
+    },
+    voice: (messageId: string) => requestBlob(`/chats/messages/${messageId}/voice`),
   },
 
   groups: {
@@ -244,10 +272,43 @@ export const api = {
       request<MoneyRequest>(`/requests/${id}/settle`, {
         method: 'PUT',
       }),
+    submitProof: (id: string, transactionId: string, proof: File) => {
+      const body = new FormData()
+      body.append('transactionId', transactionId)
+      body.append('proof', proof, proof.name)
+      return request<MoneyRequest>(`/requests/${id}/settlement-proof`, { method: 'POST', body, headers: {} })
+    },
+    proof: (id: string) => requestBlob(`/requests/${id}/settlement-proof`),
+    verify: (id: string) => request<MoneyRequest>(`/requests/${id}/verify-settlement`, { method: 'PUT' }),
     cancel: (id: string) =>
       request<MoneyRequest>(`/requests/${id}/cancel`, {
         method: 'PUT',
       }),
+  },
+
+  reminders: {
+    list: (sourceType?: string, sourceId?: string) => {
+      const params = new URLSearchParams()
+      if (sourceType) params.set('sourceType', sourceType)
+      if (sourceId) params.set('sourceId', sourceId)
+      return request<PaymentReminder[]>(`/reminders${params.size ? `?${params}` : ''}`)
+    },
+    create: (reminder: {
+      sourceType: 'expense' | 'request'
+      sourceId: string
+      expenseDescription: string
+      currency: string
+      amountMinor: number
+      payerUserId?: string
+      payerName?: string
+      payerMsisdn?: string
+      payerInstagramId?: string
+      channels?: NotificationChannel[]
+      intervalDays: 7 | 10 | 15 | 30
+    }) => request<PaymentReminder>('/reminders', { method: 'POST', body: JSON.stringify(reminder) }),
+    settle: (id: string) => request<PaymentReminder>(`/reminders/${id}/settle`, { method: 'PUT' }),
+    pause: (id: string) => request<PaymentReminder>(`/reminders/${id}/pause`, { method: 'PUT' }),
+    sendNow: (id: string) => request<PaymentReminder>(`/reminders/${id}/send-now`, { method: 'POST' }),
   },
 
   admin: {
