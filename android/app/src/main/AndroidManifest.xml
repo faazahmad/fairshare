@@ -23,7 +23,8 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Deep link for the backend OAuth callback: com.fairshare.app://auth/callback. -->
+            <!-- Deep link for native OAuth callback: com.fairshare.app://auth/callback
+                 Must match VITE_NATIVE_AUTH_REDIRECT_URL in .env and OAuth provider callbacks. -->
             <intent-filter android:autoVerify="false">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

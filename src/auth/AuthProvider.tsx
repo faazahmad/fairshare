@@ -1,23 +1,52 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import type { AuthActionResult, AuthProfile, SocialProvider } from './types'
-import { api, ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY } from '../lib/api'
-import { isNativeAuth, listenForNativeOAuth, startNativeOAuth } from './nativeOAuth'
+import { Capacitor, type PluginListenerHandle } from '@capacitor/core'
+import { Browser } from '@capacitor/browser'
+import { App as CapApp } from '@capacitor/app'
+import type { User } from '../domain/types'
+import { api, ApiError, ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY } from '../lib/api'
+import type { AuthActionResult, AuthProfile, OtpDispatch, OtpPurpose, PhoneVerificationResult, SocialProvider } from './types'
+import { parseNativeOAuthCallback } from './nativeOAuth'
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1').replace(/\/$/, '')
 const OAUTH_PROVIDER_KEY = 'fairshare-oauth-provider'
 const AUTH_CHECK_TIMEOUT_MS = 10_000
 
+interface RegistrationPayload {
+  firstName: string
+  lastName: string
+  email: string
+  dateOfBirth: string
+  password: string
+  phone: string
+  phoneVerificationToken: string
+}
+
+interface ReviewPayload {
+  firstName: string
+  lastName: string
+  email: string
+  dateOfBirth: string
+  phone?: string
+  acceptedTerms: boolean
+}
+
 interface AuthContextValue {
   user: AuthProfile | null
   loading: boolean
   authError: string | null
+  oauthError: string | null
+  clearAuthError: () => void
+  clearOAuthError: () => void
   signInWithEmail: (email: string, password: string) => Promise<AuthActionResult>
-  signUpWithEmail: (name: string, email: string, password: string, phone?: string) => Promise<AuthActionResult>
   signInWithSocial: (provider: SocialProvider) => Promise<AuthActionResult>
+  requestPhoneOtp: (phone: string, purpose: OtpPurpose) => Promise<OtpDispatch>
+  verifyPhoneOtp: (phone: string, code: string, purpose: OtpPurpose) => Promise<PhoneVerificationResult>
+  registerWithPhone: (payload: RegistrationPayload) => Promise<void>
+  completeOnboarding: (payload: ReviewPayload) => Promise<void>
+  resendEmailVerification: () => Promise<void>
   sendPasswordReset: (email: string) => Promise<AuthActionResult>
   signOut: () => Promise<void>
   updateUser: (updates: Partial<AuthProfile>) => void
-  clearAuthError: () => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -27,27 +56,41 @@ function friendlyError(caught: unknown): Error {
   return new Error('Authentication could not be completed. Please try again.')
 }
 
-function profileFromApi(
-  profile: { id: string; email: string; name: string; avatarUrl?: string; phone?: string; onboardingStep?: string },
-  provider: AuthProfile['provider'] = 'email',
-): AuthProfile {
+function profileFromApi(profile: User, provider: AuthProfile['provider'] = 'email'): AuthProfile {
   return {
     id: profile.id,
     email: profile.email,
     name: profile.name,
+    firstName: profile.firstName,
+    lastName: profile.lastName,
+    dateOfBirth: profile.dateOfBirth,
     avatarUrl: profile.avatarUrl,
     phone: profile.phone,
+    phoneVerified: profile.phoneVerified,
+    emailVerified: profile.emailVerified,
+    termsAccepted: profile.termsAccepted,
+    profileReviewed: profile.profileReviewed,
     onboardingStep: profile.onboardingStep,
     provider,
     isDemo: false,
   }
 }
 
-function callbackParameters(): URLSearchParams {
-  const parameters = new URLSearchParams(window.location.search)
-  const hashParameters = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+function parametersFromUrl(url: string): URLSearchParams {
+  const parsed = new URL(url, window.location.origin)
+  const parameters = new URLSearchParams(parsed.search)
+  const hashParameters = new URLSearchParams(parsed.hash.replace(/^#/, ''))
   hashParameters.forEach((value, key) => parameters.set(key, value))
   return parameters
+}
+
+function callbackParameters(): URLSearchParams {
+  return parametersFromUrl(window.location.href)
+}
+
+function pendingProvider(): AuthProfile['provider'] {
+  const pending = localStorage.getItem(OAUTH_PROVIDER_KEY)
+  return pending === 'google' || pending === 'apple' || pending === 'github' ? pending : 'email'
 }
 
 function clearCallbackUrl(): void {
@@ -58,14 +101,8 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs = AUTH_CHECK_TIMEOUT_MS):
   return new Promise<T>((resolve, reject) => {
     const timer = window.setTimeout(() => reject(new Error('Authentication check timed out.')), timeoutMs)
     promise.then(
-      (value) => {
-        window.clearTimeout(timer)
-        resolve(value)
-      },
-      (error: unknown) => {
-        window.clearTimeout(timer)
-        reject(error)
-      },
+      (value) => { window.clearTimeout(timer); resolve(value) },
+      (error: unknown) => { window.clearTimeout(timer); reject(error) },
     )
   })
 }
@@ -77,128 +114,90 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true
-    const initialParameters = callbackParameters()
-    const expectsSession =
-      initialParameters.has('access_token') ||
-      initialParameters.has('refresh_token') ||
-      initialParameters.has('error') ||
-      initialParameters.has('error_description') ||
-      Boolean(localStorage.getItem(ACCESS_TOKEN_KEY))
+    let appUrlListener: PluginListenerHandle | null = null
 
-    const fallbackTimer = window.setTimeout(() => {
-      if (!mounted) return
-      if (expectsSession) {
-        setAuthError('Sign-in took too long. Check that the backend is running, then try again.')
-      }
-      setLoading(false)
-    }, AUTH_CHECK_TIMEOUT_MS + 1_000)
-
-    async function initSession() {
-      const parameters = callbackParameters()
-      const accessToken = parameters.get('access_token')
-      const refreshToken = parameters.get('refresh_token')
-      const oauthError = parameters.get('error_description') ?? parameters.get('error')
-      const hasCallback =
-        parameters.has('access_token') ||
-        parameters.has('refresh_token') ||
-        parameters.has('error') ||
-        parameters.has('error_description')
-      const pendingProvider = localStorage.getItem(OAUTH_PROVIDER_KEY)
-      const provider = pendingProvider === 'github' || pendingProvider === 'google' ? pendingProvider : 'email'
-
-      try {
-        if (oauthError) {
-          clearCallbackUrl()
-          throw new Error(oauthError)
-        }
-
-        if (hasCallback && (!accessToken || !refreshToken)) {
-          clearCallbackUrl()
-          throw new Error('The sign-in provider returned an incomplete session. Please try again.')
-        }
-
-        if (accessToken && refreshToken) {
-          localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
-          localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
-          localStorage.removeItem(OAUTH_PROVIDER_KEY)
-          clearCallbackUrl()
-
-          const profile = await withTimeout(api.users.getProfile())
-          if (mounted) setUser(profileFromApi(profile, provider))
-          return
-        }
-
-        if (localStorage.getItem(ACCESS_TOKEN_KEY)) {
-          try {
-            const profile = await withTimeout(api.users.getProfile())
-            if (mounted) setUser(profileFromApi(profile))
-          } catch (error) {
-            localStorage.removeItem(ACCESS_TOKEN_KEY)
-            localStorage.removeItem(REFRESH_TOKEN_KEY)
-            throw error
-          }
-        }
-      } catch (caught) {
-        console.warn('Could not restore the authentication session.', caught)
-        if (mounted) setAuthError(friendlyError(caught).message)
-      } finally {
-        window.clearTimeout(fallbackTimer)
-        if (mounted) setLoading(false)
-      }
-    }
-
-    void initSession()
-    return () => {
-      mounted = false
-      window.clearTimeout(fallbackTimer)
-    }
-  }, [])
-
-  useEffect(() => {
-    let active = true
-    let removeListener: (() => Promise<void>) | undefined
-
-    async function restoreNativeSession(accessToken: string, refreshToken: string) {
-      const pendingProvider = localStorage.getItem(OAUTH_PROVIDER_KEY)
-      const provider = pendingProvider === 'github' || pendingProvider === 'google' ? pendingProvider : 'email'
-
+    async function establishSession(accessToken: string, refreshToken: string, provider: AuthProfile['provider']) {
       localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
       localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
       localStorage.removeItem(OAUTH_PROVIDER_KEY)
       setAuthError(null)
       setLoading(true)
-
       try {
         const profile = await withTimeout(api.users.getProfile())
-        if (active) setUser(profileFromApi(profile, provider))
+        if (mounted) setUser(profileFromApi(profile, provider))
       } catch (caught) {
         localStorage.removeItem(ACCESS_TOKEN_KEY)
         localStorage.removeItem(REFRESH_TOKEN_KEY)
-        if (active) setAuthError(friendlyError(caught).message)
+        if (mounted) setAuthError(friendlyError(caught).message)
       } finally {
-        if (active) setLoading(false)
+        if (mounted) setLoading(false)
       }
     }
 
-    if (isNativeAuth()) {
-      void listenForNativeOAuth(
-        ({ accessToken, refreshToken }) => restoreNativeSession(accessToken, refreshToken),
-        (error) => {
-          localStorage.removeItem(OAUTH_PROVIDER_KEY)
-          if (active) {
-            setAuthError(error.message)
-            setLoading(false)
-          }
-        },
-      ).then((cleanup) => {
-        if (active) removeListener = cleanup
-        else void cleanup()
-      })
+    async function consumeCallback(parameters: URLSearchParams, clearWebUrl: boolean) {
+      const accessToken = parameters.get('access_token')
+      const refreshToken = parameters.get('refresh_token')
+      const callbackError = parameters.get('error_description') ?? parameters.get('error')
+      if (callbackError) {
+        localStorage.removeItem(OAUTH_PROVIDER_KEY)
+        if (clearWebUrl) clearCallbackUrl()
+        throw new Error(decodeURIComponent(callbackError))
+      }
+      if (!accessToken || !refreshToken) throw new Error('The sign-in provider returned an incomplete session. Please try again.')
+      if (clearWebUrl) clearCallbackUrl()
+      await establishSession(accessToken, refreshToken, pendingProvider())
     }
 
+    async function initSession() {
+      const parameters = callbackParameters()
+      const hasOAuthCallback = parameters.has('access_token') || parameters.has('refresh_token') || parameters.has('error') || parameters.has('error_description')
+      try {
+        if (hasOAuthCallback) {
+          await consumeCallback(parameters, true)
+          return
+        }
+        if (parameters.has('email_verified') || parameters.has('email_verification_error')) clearCallbackUrl()
+        if (localStorage.getItem(ACCESS_TOKEN_KEY)) {
+          try {
+            const profile = await withTimeout(api.users.getProfile())
+            if (mounted) setUser(profileFromApi(profile))
+          } catch (caught) {
+            if (caught instanceof ApiError && caught.status === 401) {
+              localStorage.removeItem(ACCESS_TOKEN_KEY)
+              localStorage.removeItem(REFRESH_TOKEN_KEY)
+            } else {
+              throw caught
+            }
+          }
+        }
+      } catch (caught) {
+        if (mounted) setAuthError(friendlyError(caught).message)
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+
+    if (Capacitor.isNativePlatform()) {
+      void CapApp.addListener('appUrlOpen', async ({ url }) => {
+        if (!url) return
+        try {
+          await Browser.close()
+        } catch {
+          // The provider sheet may already have closed itself.
+        }
+        try {
+          const tokens = parseNativeOAuthCallback(url)
+          if (tokens) await establishSession(tokens.accessToken, tokens.refreshToken, pendingProvider())
+        } catch (caught) {
+          if (mounted) setAuthError(friendlyError(caught).message)
+        }
+      }).then((listener) => { appUrlListener = listener })
+    }
+
+    void initSession()
     return () => {
-      active = false
-      if (removeListener) void removeListener()
+      mounted = false
+      if (appUrlListener) void appUrlListener.remove()
     }
   }, [])
 
@@ -206,6 +205,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     loading,
     authError,
+    oauthError: authError,
+    clearAuthError: () => setAuthError(null),
+    clearOAuthError: () => setAuthError(null),
 
     async signInWithEmail(email, password) {
       setAuthError(null)
@@ -213,7 +215,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const response = await api.auth.login({ email, password })
         localStorage.setItem(ACCESS_TOKEN_KEY, response.accessToken)
         localStorage.setItem(REFRESH_TOKEN_KEY, response.refreshToken)
-        localStorage.removeItem(OAUTH_PROVIDER_KEY)
         setUser(profileFromApi(response.user))
         return {}
       } catch (caught) {
@@ -221,49 +222,84 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     },
 
-    async signUpWithEmail(name, email, password, phone) {
+    async signInWithSocial(provider) {
+      setAuthError(null)
+      localStorage.setItem(OAUTH_PROVIDER_KEY, provider)
+      const native = Capacitor.isNativePlatform()
+      const targetUrl = `${API_BASE_URL}/auth/oauth/${provider}${native ? '?platform=mobile' : ''}`
+      if (native) await Browser.open({ url: targetUrl, windowName: '_self' })
+      else window.location.assign(targetUrl)
+      return {}
+    },
+
+    async requestPhoneOtp(phone, purpose) {
       setAuthError(null)
       try {
-        const response = await api.auth.register({ name, email, password, phone })
-        localStorage.setItem(ACCESS_TOKEN_KEY, response.accessToken)
-        localStorage.setItem(REFRESH_TOKEN_KEY, response.refreshToken)
-        localStorage.removeItem(OAUTH_PROVIDER_KEY)
-        setUser(profileFromApi({
-          ...response.user,
-          phone: response.user.phone ?? phone,
-        }))
-        return { message: 'Account created successfully.' }
+        return await api.auth.sendOtp(phone, purpose)
       } catch (caught) {
         throw friendlyError(caught)
       }
     },
 
-    async signInWithSocial(provider) {
+    async verifyPhoneOtp(phone, code, purpose) {
       setAuthError(null)
-      if (provider !== 'google' && provider !== 'github') {
-        throw new Error('Apple sign-in is coming soon.')
+      try {
+        const result = await api.auth.verifyOtp(phone, code, purpose)
+        if (result.auth) {
+          localStorage.setItem(ACCESS_TOKEN_KEY, result.auth.accessToken)
+          localStorage.setItem(REFRESH_TOKEN_KEY, result.auth.refreshToken)
+          localStorage.removeItem(OAUTH_PROVIDER_KEY)
+          setUser(profileFromApi(result.auth.user))
+        }
+        return {
+          verified: result.verified,
+          registrationRequired: result.registrationRequired,
+          phone: result.phone,
+          verificationToken: result.verificationToken,
+        }
+      } catch (caught) {
+        throw friendlyError(caught)
       }
-      localStorage.setItem(OAUTH_PROVIDER_KEY, provider)
-      if (isNativeAuth()) {
-        await startNativeOAuth(provider, API_BASE_URL)
-        return { message: 'Complete sign-in in the secure window, then you’ll return to Fairshare.' }
+    },
+
+    async registerWithPhone(payload) {
+      setAuthError(null)
+      try {
+        const response = await api.auth.register(payload)
+        localStorage.setItem(ACCESS_TOKEN_KEY, response.accessToken)
+        localStorage.setItem(REFRESH_TOKEN_KEY, response.refreshToken)
+        setUser(profileFromApi(response.user))
+      } catch (caught) {
+        throw friendlyError(caught)
       }
-      window.location.assign(`${API_BASE_URL}/auth/oauth/${provider}`)
-      return {}
+    },
+
+    async completeOnboarding(payload) {
+      setAuthError(null)
+      try {
+        const profile = await api.users.completeOnboarding(payload)
+        setUser(profileFromApi(profile, user?.provider ?? 'email'))
+      } catch (caught) {
+        throw friendlyError(caught)
+      }
+    },
+
+    async resendEmailVerification() {
+      try {
+        await api.users.resendEmailVerification()
+      } catch (caught) {
+        throw friendlyError(caught)
+      }
     },
 
     async sendPasswordReset() {
-      return { message: 'Password recovery will be available after the backend reset endpoint is enabled.' }
+      return { message: 'Password recovery will be available after the secure reset endpoint is enabled.' }
     },
 
     async signOut() {
       const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY)
       if (refreshToken) {
-        try {
-          await api.auth.logout(refreshToken)
-        } catch {
-          // Clear the local session even if the backend is unavailable.
-        }
+        try { await api.auth.logout(refreshToken) } catch { /* Always clear the local session. */ }
       }
       localStorage.removeItem(ACCESS_TOKEN_KEY)
       localStorage.removeItem(REFRESH_TOKEN_KEY)
@@ -274,10 +310,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     updateUser(updates) {
       setUser((current) => current ? { ...current, ...updates } : null)
-    },
-
-    clearAuthError() {
-      setAuthError(null)
     },
   }), [authError, loading, user])
 

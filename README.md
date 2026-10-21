@@ -20,9 +20,9 @@ and does not contain Splitwise source code, branding, or private assets.
 - Debt simplification that preserves every member's net balance
 - Local persistence so the prototype is useful before the API is connected
 - Installable PWA shell and Capacitor Android/iOS packaging foundation
-- Protected login with email/password plus backend-driven Google and GitHub OAuth
-- Apple sign-in preview with native provider implementation planned
-- Real web OAuth redirects plus Android/iOS deep-link session handoff (provider credentials required)
+- Phone-first sign-in with purpose-bound OTP verification and a three-step account-creation flow
+- Backend-driven Google and Apple sign-in with first-login profile review and verified identity linking
+- Real web OAuth redirects plus secure Android/iOS provider sessions and deep-link handoff (provider credentials required)
 - Persisted currency and language choices that update the ledger, dates, and core navigation
 - Android & iOS platform projects generated with Capacitor (point at a deployed backend via the `.env` file)
 
@@ -39,7 +39,7 @@ All backend URLs are driven by environment variables — no localhost is hard-co
 
 2. Configure CORS origins on the backend so the web app and its
    WebSocket channel can reach it from the web AND from the installed Android/iOS builds.
-3. Configure Google and GitHub to return to their backend callback URLs. The backend
+3. Configure Google and Apple to return to their backend callback URLs. The backend
    then sends installed apps to `com.fairshare.app://auth/callback`.
 
 > ⚠️ Vite bakes `.env` values in **at build time** (`pnpm build`), so set
@@ -86,6 +86,20 @@ Then open the local URL printed by Vite.
 pnpm test
 pnpm build
 ```
+
+## GitHub release + Vercel deploy automation
+
+This repo includes `.github/workflows/release-and-vercel.yml` to:
+
+- run on pushes to `main`/`master`
+- create a new GitHub release with an auto-generated tag
+- deploy the frontend to Vercel production
+
+Add these repository secrets before using it:
+
+- `VERCEL_TOKEN`
+- `VERCEL_ORG_ID`
+- `VERCEL_PROJECT_ID`
 
 The product research and phased roadmap are in [`docs/PRODUCT_BLUEPRINT.md`](docs/PRODUCT_BLUEPRINT.md).
 The native release process and remaining store requirements are in [`docs/MOBILE_RELEASE.md`](docs/MOBILE_RELEASE.md).

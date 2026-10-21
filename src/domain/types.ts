@@ -3,6 +3,9 @@ export type ID = string
 export interface User {
   id: ID
   name: string
+  firstName?: string
+  lastName?: string
+  dateOfBirth?: string
   email: string
   initials: string
   color: string
@@ -16,6 +19,11 @@ export interface User {
   paymentQrData?: string
   defaultCurrency?: string
   language?: string
+  onboardingStep?: string
+  phoneVerified?: boolean
+  emailVerified?: boolean
+  termsAccepted?: boolean
+  profileReviewed?: boolean
 }
 
 export type GroupKind = 'trip' | 'home' | 'couple' | 'other'

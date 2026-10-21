@@ -1,85 +1,35 @@
 # Authentication setup
 
-Fairshare uses the Spring Boot backend for email/password login and OAuth.
-Provider secrets must never be added to the Vite frontend.
+Fairshare delegates authentication to the Spring Boot backend. Provider secrets, SMS credentials, SMTP credentials, and Apple private keys must never be added to the Vite application.
 
-## Frontend environment
+## Frontend
 
-Copy `.env.example` to `.env`:
+Copy `.env.example` to `.env` and set:
 
 ```dotenv
 VITE_API_BASE_URL=http://localhost:8080/api/v1
 VITE_NATIVE_AUTH_REDIRECT_URL=com.fairshare.app://auth/callback
 ```
 
-Use a reachable HTTPS API URL for installed-device and production builds.
-`localhost` inside a physical phone points to the phone, not this computer.
+The installed Android and iOS apps open the provider authorization session and receive the completed Fairshare session through `com.fairshare.app://auth/callback`. Browser builds return to `/auth/callback`.
 
-## Backend environment
+## Backend providers
 
-Configure these values in the backend `.env` file:
+Configure provider callback URLs on the backend, never in the frontend:
 
-```dotenv
-FRONTEND_URL=http://localhost:5173
-NATIVE_AUTH_REDIRECT_URL=com.fairshare.app://auth/callback
+- Google: `${PUBLIC_API_URL}/api/v1/auth/oauth/google/callback`
+- Apple: `${PUBLIC_API_URL}/api/v1/auth/oauth/apple/callback`
 
-GOOGLE_CLIENT_ID=...
-GOOGLE_CLIENT_SECRET=...
-GOOGLE_REDIRECT_URI=http://localhost:8080/api/v1/auth/oauth/google/callback
+Sign in with Apple requires a Services ID, Team ID, Key ID, and the associated private key. Apple requires a registered HTTPS return URL for web authentication; `localhost` is not accepted as an Apple return URL.
 
-GITHUB_CLIENT_ID=...
-GITHUB_CLIENT_SECRET=...
-GITHUB_REDIRECT_URI=http://localhost:8080/api/v1/auth/oauth/github/callback
-```
+Phone OTP delivery is provider-backed in production and exposes a code only when the explicit development flag is enabled. Email verification uses SMTP in production and records a single-use, expiring token before delivery.
 
-For deployment, replace the backend callback URLs with the public HTTPS API
-domain and register those exact URLs in the Google and GitHub provider consoles.
-The providers return only to the backend. The backend then selects one of two
-fixed destinations:
-
-- Browser: `FRONTEND_URL/auth/callback`
-- Installed app: `NATIVE_AUTH_REDIRECT_URL`
-
-The client cannot supply an arbitrary redirect URL.
-
-## Native Android and iOS handoff
-
-Android registers `com.fairshare.app://auth/callback` in
-`android/app/src/main/AndroidManifest.xml`. iOS registers the same scheme in
-`ios/App/App/Info.plist`.
-
-The app opens Google or GitHub in Capacitor Browser. When the provider returns
-to the backend, the backend places the Fairshare access and refresh tokens in
-the custom callback fragment. Capacitor App receives the deep link, closes the
-sign-in sheet, stores the session, and loads the current backend profile.
-
-Run `pnpm mobile:sync` after changing the callback or Capacitor plugins.
-
-## Apple status
-
-The Apple logo is present in the login UI, but the button intentionally remains
-disabled and labelled coming soon. Shipping Apple login requires Apple
-Authentication Services, an App ID and Services ID, signing credentials, and a
-backend endpoint that verifies the Apple identity token.
-
-## Verification
-
-```powershell
-pnpm test
-pnpm build
-pnpm mobile:sync
-```
-
-Backend OAuth controller tests run in the Maven container and verify both web
-and native redirects. A real provider sign-in additionally requires valid
-provider credentials and matching callback URLs.
+See the backend `.env.example` for the complete environment contract.
 
 ## Security checklist
 
 - Use HTTPS for every non-local API and callback URL.
-- Keep Google and GitHub client secrets only in the backend environment.
-- Store mobile tokens with a secure native storage plugin before production.
-- Keep OAuth scopes limited to identity, email, and basic profile.
-- Add rate limits, account deletion, session revocation, and audit monitoring.
-- Test sign-out, token refresh, denied consent, revoked provider access, and
-  callbacks on Android, iOS, and every deployed web origin.
+- Keep OAuth, SMS, SMTP, JWT, and Apple private-key values in the deployment secret store.
+- Disable development OTP and email-link exposure outside the `dev` profile.
+- Register the native deep-link scheme in both mobile projects.
+- Make every provider callback match its configured backend URL exactly.

@@ -4,15 +4,17 @@ import App from '../App'
 import { useAuth } from './AuthProvider'
 import { LoginPage } from './LoginPage'
 import { CreateAccountFlow } from './CreateAccountFlow'
+import { ProfileReviewFlow } from './ProfileReviewFlow'
 import { HomeLoadingPage } from './HomeLoadingPage'
 import { isNativeExperience, shouldHoldNativeIntro } from './platform'
 
 export function AppGate() {
-  const { user, loading } = useAuth()
+  const { user, loading, authError, clearAuthError } = useAuth()
   const [nativeExperience] = useState(isNativeExperience)
   const [showNativeIntro, setShowNativeIntro] = useState(nativeExperience)
   const [nativeIntroLeaving, setNativeIntroLeaving] = useState(false)
   const [creatingAccount, setCreatingAccount] = useState(false)
+  const [registrationPhone, setRegistrationPhone] = useState<string | undefined>()
   const [authNotice, setAuthNotice] = useState('')
 
   useEffect(() => {
@@ -32,17 +34,30 @@ export function AppGate() {
   if (loading) {
     return <main className="auth-splash"><span><WalletCards size={27} /></span><strong>fairshare</strong><i /></main>
   }
+  if (user?.onboardingStep === 'review_profile' || user?.profileReviewed === false) return <ProfileReviewFlow />
   if (user) return <App nativeExperience={nativeExperience} />
   if (creatingAccount) {
     return (
       <CreateAccountFlow
-        onBack={() => setCreatingAccount(false)}
-        onComplete={(message) => {
-          setAuthNotice(message ?? 'Your account is ready. Sign in to continue.')
+        initialPhone={registrationPhone}
+        onBack={() => {
           setCreatingAccount(false)
+          setRegistrationPhone(undefined)
         }}
       />
     )
   }
-  return <LoginPage nativeExperience={nativeExperience} notice={authNotice} onCreateAccount={() => { setAuthNotice(''); setCreatingAccount(true) }} />
+  return (
+    <LoginPage
+      nativeExperience={nativeExperience}
+      notice={authNotice}
+      initialError={authError ?? ''}
+      onCreateAccount={(phone) => {
+        setAuthNotice('')
+        clearAuthError()
+        setRegistrationPhone(phone)
+        setCreatingAccount(true)
+      }}
+    />
+  )
 }

@@ -105,19 +105,34 @@ async function attemptRefreshToken(refreshToken: string): Promise<boolean> {
 
 export const api = {
   auth: {
-    sendOtp: (phone: string) =>
-      request<{ phone: string; message: string }>('/auth/otp/send', {
+    sendOtp: (phone: string, purpose: 'SIGN_IN' | 'SIGN_UP') =>
+      request<{ phone: string; expiresInSeconds: number; devCode?: string | null }>('/auth/otp/send', {
         method: 'POST',
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone, purpose }),
       }),
 
-    verifyOtp: (phone: string, code: string) =>
-      request<{ verified: boolean }>('/auth/otp/verify', {
+    verifyOtp: (phone: string, code: string, purpose: 'SIGN_IN' | 'SIGN_UP') =>
+      request<{
+        verified: boolean
+        registrationRequired: boolean
+        phone: string
+        verificationToken?: string | null
+        auth?: { accessToken: string; refreshToken: string; user: User } | null
+      }>('/auth/otp/verify', {
         method: 'POST',
-        body: JSON.stringify({ phone, code }),
+        body: JSON.stringify({ phone, code, purpose }),
       }),
 
-    register: (payload: { name: string; email: string; password: string; phone?: string; defaultCurrency?: string }) =>
+    register: (payload: {
+      firstName: string
+      lastName: string
+      email: string
+      dateOfBirth: string
+      password: string
+      phone: string
+      phoneVerificationToken: string
+      defaultCurrency?: string
+    }) =>
       request<{ accessToken: string; refreshToken: string; user: User }>('/auth/register', {
         method: 'POST',
         body: JSON.stringify(payload),
@@ -140,6 +155,7 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ refreshToken }),
       }),
+
   },
 
   users: {
@@ -154,6 +170,18 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify({ step }),
       }),
+    completeOnboarding: (profile: {
+      firstName: string
+      lastName: string
+      email: string
+      dateOfBirth: string
+      phone?: string
+      acceptedTerms: boolean
+    }) => request<User>('/users/me/onboarding/complete', {
+      method: 'POST',
+      body: JSON.stringify(profile),
+    }),
+    resendEmailVerification: () => request<void>('/users/me/email/verification', { method: 'POST' }),
   },
 
   contacts: {
@@ -202,6 +230,10 @@ export const api = {
       request<Group>(`/groups/${groupId}/members`, {
         method: 'POST',
         body: JSON.stringify(member),
+      }),
+    removeMember: (groupId: string, userId: string) =>
+      request<void>(`/groups/${groupId}/members/${userId}`, {
+        method: 'DELETE',
       }),
     getBalances: (groupId: string, currency?: string) =>
       request<{
